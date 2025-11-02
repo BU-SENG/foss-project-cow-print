@@ -22,7 +22,7 @@ import os
 import json
 import re
 import argparse
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 
 # Hey, trying to import the cool extras - don't sweat it if they're not installed
