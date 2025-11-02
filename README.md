@@ -4,7 +4,7 @@ CONTRIBUTOR : ANURIAM ISAAC 22/0004
 # 🧠 Gemini AI Reasoning Core (`sqlm.py`)
 
 The **Gemini AI Reasoning Core** is the intelligent engine that transforms **natural language (NL) instructions** into precise, executable **SQL queries**.  
-It uses **Google’s Gemini 1.5 Pro** model to understand intent, apply schema awareness, and generate safe SQL — serving as the brain of your AI-driven database management system.
+It uses **Google’s Gemini 2.5 Pro** model to understand intent, apply schema awareness, and generate safe SQL — serving as the brain of your AI-driven database management system.
 
 ---
 
