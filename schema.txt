@@ -1,0 +1,86 @@
+Database: companydb
+
+  Table employees:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    first_name (VARCHAR)
+    last_name (VARCHAR)
+    email (VARCHAR)
+    phone (VARCHAR)
+    department_id (INT, FOREIGN KEY -> departments.id)
+    hire_date (DATE)
+    salary (DECIMAL)
+    status (VARCHAR)  -- e.g., Active, On Leave, Terminated
+
+  Table departments:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    department_name (VARCHAR)
+    manager_id (INT, FOREIGN KEY -> employees.id)
+    location_id (INT, FOREIGN KEY -> locations.id)
+
+  Table locations:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    city (VARCHAR)
+    state (VARCHAR)
+    country (VARCHAR)
+
+  Table projects:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    project_name (VARCHAR)
+    start_date (DATE)
+    end_date (DATE)
+    budget (DECIMAL)
+    department_id (INT, FOREIGN KEY -> departments.id)
+
+  Table employee_projects:
+    employee_id (INT, FOREIGN KEY -> employees.id)
+    project_id (INT, FOREIGN KEY -> projects.id)
+    role (VARCHAR)
+    hours_allocated (INT)
+    PRIMARY KEY (employee_id, project_id)
+
+  Table attendance:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    employee_id (INT, FOREIGN KEY -> employees.id)
+    date (DATE)
+    status (VARCHAR)  -- e.g., Present, Absent, Late, Remote
+    check_in_time (TIME)
+    check_out_time (TIME)
+
+  Table performance_reviews:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    employee_id (INT, FOREIGN KEY -> employees.id)
+    review_date (DATE)
+    reviewer_id (INT, FOREIGN KEY -> employees.id)
+    score (INT)
+    comments (TEXT)
+
+  Table payroll:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    employee_id (INT, FOREIGN KEY -> employees.id)
+    month (VARCHAR)
+    year (INT)
+    base_salary (DECIMAL)
+    bonuses (DECIMAL)
+    deductions (DECIMAL)
+    net_pay (DECIMAL)
+
+  Table users:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    username (VARCHAR)
+    password_hash (VARCHAR)
+    role (VARCHAR)  -- e.g., admin, hr, manager
+    last_login (DATETIME)
+
+  Table audit_logs:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    user_id (INT, FOREIGN KEY -> users.id)
+    action (VARCHAR)
+    timestamp (DATETIME)
+    ip_address (VARCHAR)
+    details (TEXT)
+
+  Table system_settings:
+    id (INT, PRIMARY KEY, AUTO_INCREMENT)
+    setting_name (VARCHAR)
+    setting_value (VARCHAR)
+    description (TEXT)
