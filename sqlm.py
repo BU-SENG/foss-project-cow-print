@@ -168,7 +168,7 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
                 else:
                     tables.add(str(node.this))
             except Exception:
-                # Skip malformed table nodes that can't be safely converted to string
+                # Some AST nodes may not have the expected structure; safely skip these.
                 pass
 
         cols = set()
@@ -181,7 +181,7 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
                 else:
                     cols.add(name)
             except Exception:
-                # Skip columns with missing/inaccessible table or name attributes
+                # Skip malformed column nodes that lack proper name attributes
                 pass
 
         metadata["tables"] = list(tables)
@@ -192,7 +192,7 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
             try:
                 metadata["pretty"] = sqlparse.format(sql, reindent=True, keyword_case='upper')
             except Exception:
-                # Fallback to unformatted SQL if sqlparse formatting fails
+                # Fall back to original SQL if formatting fails
                 metadata["pretty"] = sql
         else:
             metadata["pretty"] = sql
