@@ -16,7 +16,7 @@ Instead of writing complex SQL, you can simply describe what you want. AetherDB'
 
 AetherDB uses a multi-layer AI pipeline that combines structured database intelligence with LLM reasoning. The `sqlm.py` core sits at the heart of this architecture.
 
-```mermaid
+```
 ┌──────────────────────────────────────────────┐
 │               User Interface Layer           │
 │  (CLI / Web Dashboard / Voice Input)         │
