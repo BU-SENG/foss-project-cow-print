@@ -168,6 +168,7 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
                 else:
                     tables.add(str(node.this))
             except Exception:
+                # Some AST nodes may not have the expected structure; safely skip these.
                 pass
 
         cols = set()
