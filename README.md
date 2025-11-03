@@ -59,7 +59,7 @@ The Reasoning Core sits at the heart of your multi-layer architecture:
 ## 🧩 Features
 
 - ⚙️ Converts **natural language commands** into SQL queries  
-- 🧠 Uses **Gemini 1.5 Pro** for reasoning and logic inference  
+- 🧠 Uses **Gemini 2.5 Pro** for reasoning and logic inference  
 - 🧾 Integrates **schema awareness** for contextually accurate queries  
 - 🛡️ Includes **execution safety flags** and confidence scores  
 - 🔄 Accepts structured payloads from the **Command Processing Layer**  
@@ -77,7 +77,7 @@ Create a `.env` file in the project root:
 
 ```
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-1.5-pro
+GEMINI_MODEL=models/gemini-2.5-pro
 DEFAULT_DIALECT=mysql
 ```
 
@@ -85,12 +85,12 @@ DEFAULT_DIALECT=mysql
 
 ## ⚙️ Configuration
 
-| Variable                  | Description                             | Default          |
-| ------------------------- | --------------------------------------- | ---------------- |
-| `GEMINI_API_KEY`          | Your Google Gemini API key              | —                |
-| `GEMINI_MODEL`            | Gemini model version                    | `gemini-1.5-pro` |
-| `DEFAULT_DIALECT`         | SQL dialect (`mysql`, `postgres`, etc.) | `mysql`          |
-| `MAX_SCHEMA_PROMPT_CHARS` | Limit on schema size sent to Gemini     | `14000`          |
+| Variable                  | Description                             | Default               |
+| ------------------------- | --------------------------------------- | --------------------- |
+| `GEMINI_API_KEY`          | Your Google Gemini API key              | —                     |
+| `GEMINI_MODEL`            | Gemini model version                    | `models/gemini-2.5-pro` |
+| `DEFAULT_DIALECT`         | SQL dialect (`mysql`, `postgres`, etc.) | `mysql`               |
+| `MAX_SCHEMA_PROMPT_CHARS` | Limit on schema size sent to Gemini     | `14000`               |
 
 ---
 
