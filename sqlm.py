@@ -27,19 +27,30 @@ from typing import Optional, Dict, Any, List, Tuple
 
 # Hey, trying to import the cool extras - don't sweat it if they're not installed
 try:
-    import sqlglot
-    from sqlglot import parse_one, exp
+    import importlib
+    _sqlglot_mod = importlib.import_module("sqlglot")
+    # expose module and commonly used symbols if available
+    sqlglot = _sqlglot_mod
+    parse_one = getattr(_sqlglot_mod, "parse_one", None)
+    exp = getattr(_sqlglot_mod, "exp", None)
 except Exception:
+    # Fallbacks when sqlglot is not installed or cannot be imported
     sqlglot = None
+    parse_one = None
+    exp = None
 
 try:
-    import sqlparse
+    import importlib
+    _sqlparse_mod = importlib.import_module("sqlparse")
+    sqlparse = _sqlparse_mod
 except Exception:
     sqlparse = None
 
 # Trying to hook up with Gemini - if it fails, we'll just use my backup plan
 try:
-    import google.generativeai as genai  # This is the good stuff
+    import importlib
+    _genai_mod = importlib.import_module("google.generativeai")
+    genai = _genai_mod
     GENAI_AVAILABLE = True
 except Exception:
     genai = None
