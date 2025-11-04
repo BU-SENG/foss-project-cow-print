@@ -1,10 +1,4 @@
 .env
-# Environment variables for the project
-GEMINI_API_KEY = 'AIzaSyDEpwon3AOoVn-G8FFKWGffXrX2mB_tQvw'
-GEMINI_MODEL = 'gemini-2.0-flash'
-GEMINI_MAX_TOKENS = 8192  # Default to 8192 tokens
-DEFAULT_DIALECT = 'mysql'
-MAX_SCHEMA_PROMPT_CHARS = 14000
 # Note: Ensure to keep these values secure and not expose them in public repositories.
 # .gitignore
 # Ignore environment files
