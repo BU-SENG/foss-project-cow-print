@@ -25,6 +25,11 @@ import argparse
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 # Hey, trying to import the cool extras - don't sweat it if they're not installed
 try:
     import importlib
@@ -58,14 +63,11 @@ except Exception:
 
 # Config from env
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.5-pro")
 GEMINI_MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "8192"))  # Default to 8192 tokens
 DEFAULT_DIALECT = os.getenv("DEFAULT_DIALECT", "mysql")
 MAX_SCHEMA_PROMPT_CHARS = int(os.getenv("MAX_SCHEMA_PROMPT_CHARS", "14000"))
 
-
-
-GEMINI_API_KEY = "sha put your own key here "
 
 
 # -----------------------------
