@@ -58,7 +58,8 @@ except Exception:
 
 # Config from env
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.5-pro") 
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
+GEMINI_MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "8192"))  # Default to 8192 tokens
 DEFAULT_DIALECT = os.getenv("DEFAULT_DIALECT", "mysql")
 MAX_SCHEMA_PROMPT_CHARS = int(os.getenv("MAX_SCHEMA_PROMPT_CHARS", "14000"))
 

@@ -1,0 +1,58 @@
+.env
+# Environment variables for the project
+GEMINI_API_KEY = 'AIzaSyDEpwon3AOoVn-G8FFKWGffXrX2mB_tQvw'
+GEMINI_MODEL = 'gemini-2.0-flash'
+GEMINI_MAX_TOKENS = 8192  # Default to 8192 tokens
+DEFAULT_DIALECT = 'mysql'
+MAX_SCHEMA_PROMPT_CHARS = 14000
+# Note: Ensure to keep these values secure and not expose them in public repositories.
+# .gitignore
+# Ignore environment files
+.env
+# Ignore Python cache files
+__pycache__/
+*.pyc
+# Ignore virtual environment directories
+
+venv/
+# Ignore IDE/editor specific files
+.idea/
+.vscode/
+# Ignore log files
+*.log
+# Ignore database files
+*.sqlite3
+# Ignore compiled Python files
+*.pyo
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+# Ignore coverage reports
+.coverage
+# Ignore local configuration files
+*.local
+# Ignore Docker files
+Dockerfile
+docker-compose.yml
+# Ignore test output files
+test_output/
+# Ignore sensitive files
+secrets.json
+# Ignore any other sensitive files
+*.env.local
+# Ignore temporary files
+*.tmp
+# Ignore backup files
+*.bak
+# Ignore migrations
+migrations/
+
+# Ignore specific model files
+models/
+# Ignore specific configuration files
+config.json
+# Ignore any other files that should not be tracked
+*.secret
+# Ignore specific directories
+data/
+
