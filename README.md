@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/github/license/BU-SENG/foss-project-cow-print)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-brightgreen.svg)](https://www.python.org/)
-[![AI Engine: Gemini 2.5 Pro](https://img.shields.io/badge/AI_Engine-Gemini_2.5_Pro-purple.svg)](https://deepmind.google/technologies/gemini/)
+[![AI Engine: Gemini 2.5 Flash](https://img.shields.io/badge/AI_Engine-Gemini_2.5_Pro-purple.svg)](https://deepmind.google/technologies/gemini/)
 [![contributors](https://img.shields.io/github/contributors/BU-SENG/foss-project-cow-print.svg)](https://github.com/BU-SENG/foss-project-cow-print/graphs/contributors)
 [![open issues](https://img.shields.io/github/issues/BU-SENG/foss-project-cow-print.svg)](https://github.com/BU-SENG/foss-project-cow-print/issues)
 
