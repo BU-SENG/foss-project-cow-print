@@ -30,8 +30,8 @@ pip install streamlit
 ### File Structure
 ```
 aetherdb_ui/
-├── ui_components.py    # UI setup and styling (Person 1's work)
-├── business_logic.py   # Business logic (Person 2's work - coming soon)
+├── ui_components.py    # UI setup and styling (My work)
+├── business_logic.py   # Business logic (chiedu's work - coming soon)
 ├── app.py             # Main integration file
 └── README.md          # This documentation
 ```
