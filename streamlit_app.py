@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
+from admin_console import render_admin_console
 
 # Import our modules
 from schema_awareness import SchemaAwarenessModule
@@ -81,6 +82,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state
+if 'admin_mode' not in st.session_state:
+    st.session_state.admin_mode = False
 if 'connected' not in st.session_state:
     st.session_state.connected = False
 if 'sam' not in st.session_state:
@@ -109,10 +112,26 @@ def display_header():
                 </p>
             </div>
         """, unsafe_allow_html=True)
+        st.sidebar.markdown("[Admin Console](http://localhost:8502)")
+
 
 
 def sidebar_database_connection():
     """Sidebar for database connection"""
+    # Admin mode toggle - ADD THIS SECTION
+    st.sidebar.markdown("---")
+    admin_col1, admin_col2 = st.sidebar.columns([3, 1])
+    with admin_col1:
+        st.sidebar.markdown("**Admin Console**")
+    with admin_col2:
+        if st.sidebar.button("🔧" if not st.session_state.admin_mode else "🏠"):
+            st.session_state.admin_mode = not st.session_state.admin_mode
+            st.rerun()
+    
+    if st.session_state.admin_mode:
+        st.sidebar.info("Admin Mode Active")
+    st.sidebar.markdown("---")
+    # END OF ADMIN SECTION
     st.sidebar.title("⚙️ Database Connection")
     
     if not st.session_state.connected:
@@ -570,6 +589,12 @@ def main():
     # Sidebar
     sidebar_database_connection()
     display_statistics()
+
+    # CHECK FOR ADMIN MODE - ADD THIS
+    if st.session_state.admin_mode:
+        render_admin_console()
+        return  # Exit early, don't render normal interface
+    # END OF ADMIN CHECK
     
     # Main content
     if not st.session_state.connected:
