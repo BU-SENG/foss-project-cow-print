@@ -1,0 +1,23 @@
+@startuml
+actor User
+participant "StreamlitApp" as App
+participant "SchemaAwarenessModule" as Schema
+participant "GeminiReasoner" as AI
+participant "QueryValidator" as Validator
+participant "DialectAdapter" as Adapter
+participant "DBExecutor" as DB
+participant "OutputHandler" as Output
+participant "ContextMemory" as Context
+
+User -> App : submit natural language query
+App -> Context : read active DB/table
+App -> Schema : get tables/columns (if needed)
+App -> AI : parse_query(query)
+AI -> Validator : validate SQL
+AI -> Adapter : adapt SQL for target DB
+AI -> DB : execute SQL
+DB -> Context : update last_query/results
+DB -> Output : format results
+Output -> App : display results
+App -> User : show table/chart/natural language
+@enduml
