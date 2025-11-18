@@ -1,0 +1,17 @@
+Database: sqlite_db
+
+
+Table users:
+- user_id (INTEGER) NULL
+- username (TEXT) NOT NULL
+- email (TEXT) NULL
+  Rows: 1
+
+Table posts:
+- post_id (INTEGER) NULL
+- author_id (INTEGER) NULL
+- title (TEXT) NOT NULL
+- content (TEXT) NULL
+  Foreign Keys:
+    - author_id → users.user_id
+  Rows: 1

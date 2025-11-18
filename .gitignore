@@ -52,3 +52,4 @@ data/
 .venv312
 .vscode
 .src/ai_database_query/__pycache__
+
