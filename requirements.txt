@@ -1,0 +1,18 @@
+# Core dependencies
+streamlit>=1.28.0
+google-generativeai>=0.3.0
+python-dotenv>=1.0.0
+pandas>=2.0.0
+plotly>=5.15.0
+python>=3.12.7
+
+# Database drivers
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0          # PostgreSQL
+mysql-connector-python>=8.0.0   # MySQL
+pyodbc>=4.0.0                   # SQL Server, Access
+cx-oracle>=8.0.0                # Oracle
+
+# File import support
+openpyxl>=3.0.0                 # Excel file support
+xlrd>=2.0.0                     # Excel file support (old format)
