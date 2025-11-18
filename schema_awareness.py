@@ -30,6 +30,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import hashlib
 
+
 from dotenv import load_dotenv
 
 load_dotenv()
