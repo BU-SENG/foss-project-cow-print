@@ -577,7 +577,7 @@ def main():
         # Welcome screen
         st.markdown("""
             <div style='text-align: center; padding: 4rem 2rem; background: white; border-radius: 1rem; margin: 2rem 0;'>
-                <h2 style='color: #667eea; margin-bottom: 1rem;'>Welcome to AetherDb 👋</h2>
+                <h2 style='color: #667eea; margin-bottom: 1rem;'>Welcome to AetherDB 👋</h2>
                 <p style='font-size: 1.1rem; color: #666; max-width: 600px; margin: 0 auto;'>
                     Connect your database using the sidebar to get started. Once connected, you can:
                 </p>
