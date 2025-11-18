@@ -459,8 +459,7 @@ def display_query_interface():
                                     )
                                 
                                 with viz_col2:
-                                    if len(numeric_cols) > 0:
-                                        y_col = st.selectbox("Y-Axis", numeric_cols)
+                                    y_col = st.selectbox("Y-Axis", numeric_cols)
                                 
                                 # Generate chart
                                 if chart_type == "Bar Chart" and len(df.columns) >= 2:
