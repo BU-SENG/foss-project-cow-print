@@ -1,4 +1,5 @@
 streamlit>=1.28.0
+cryptography==46.0.3
 pandas>=2.0.0
 plotly>=5.17.0
 python-dotenv>=1.0.0

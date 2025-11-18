@@ -9,7 +9,11 @@ Run: python setup.py
 import sys
 import subprocess
 from pathlib import Path
-
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+import base64
 
 def print_header():
     """Print a beautiful header"""
@@ -66,7 +70,7 @@ def install_dependencies():
 
 
 def create_env_file():
-    """Create .env file with user input"""
+    """Create .env file with user input (now encrypts API key)"""
     if Path(".env").exists():
         response = input("\n⚠️  .env file already exists. Overwrite? (y/N): ")
         if response.lower() != 'y':
@@ -80,10 +84,28 @@ def create_env_file():
     print("3. Copy and paste it below\n")
     
     api_key = input("Enter your Gemini API Key (or press Enter to skip): ").strip()
+    if api_key:
+        print("\n🔒 For security, your API key will be encrypted before storage.")
+        password = input("Set a password to encrypt your API key (keep this safe!): ").strip()
+        password_bytes = password.encode()
+        salt = b"gemini-setup-salt"  # In production, generate a random salt and store it.
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100_000,
+            backend=default_backend()
+        )
+        key = base64.urlsafe_b64encode(kdf.derive(password_bytes))
+        fernet = Fernet(key)
+        encrypted_api_key = fernet.encrypt(api_key.encode()).decode()
+        gemini_key_line = f"GEMINI_API_KEY_ENCRYPTED={encrypted_api_key}\nGEMINI_API_KEY_SALT={salt.decode(errors='ignore')}\n"
+    else:
+        gemini_key_line = "GEMINI_API_KEY_ENCRYPTED=\nGEMINI_API_KEY_SALT=\n"
+    
     
     env_content = f"""# Gemini AI Configuration
-GEMINI_API_KEY={api_key or 'your_api_key_here'}
-GEMINI_MODEL=models/gemini-2.5-pro
+{gemini_key_line}GEMINI_MODEL=models/gemini-2.5-pro
 GEMINI_MAX_TOKENS=8192
 
 # SQL Configuration
@@ -95,10 +117,10 @@ MAX_SCHEMA_PROMPT_CHARS=14000
         f.write(env_content)
     
     if api_key:
-        print("\n✅ .env file created with your API key!")
+        print("\n✅ .env file created with your ENCRYPTED API key!")
+        print("  ⚠️ To use Gemini API, your application must decrypt the key using your password.")
     else:
         print("\n✅ .env file created (remember to add your API key later)")
-
 
 def verify_files():
     """Verify all required files exist"""
