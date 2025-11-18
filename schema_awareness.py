@@ -119,7 +119,7 @@ class SchemaAwarenessModule:
                     port=int(connection_params.get('port', 3306)),
                     cursorclass=pymysql.cursors.DictCursor
                 )
-                print(f"✓ Connected to MySQL database: {target_db}")
+                print("✓ Connected to MySQL database.")
                 
             elif db_type_lower in {"postgres", "postgresql"}:
                 self.db_type = DatabaseType.POSTGRESQL
@@ -130,7 +130,7 @@ class SchemaAwarenessModule:
                     database=connection_params.get('database'),
                     port=int(connection_params.get('port', 5432))
                 )
-                print(f"✓ Connected to PostgreSQL database: {target_db}")
+                print("✓ Connected to PostgreSQL database.")
                 
             elif db_type_lower == "sqlite":
                 self.db_type = DatabaseType.SQLITE
