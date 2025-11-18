@@ -14,5 +14,6 @@
         "titleBar.border": "#800080",
         "sideBarTitle.background": "#800080",
         "statusBar.background": "#800080"
-    }
+    },
+    "claudeCodeChat.permissions.yoloMode": false
 }

@@ -1,0 +1,13 @@
+{
+  "database_name": "sqlite_db",
+  "database_type": "sqlite",
+  "created_at": "2025-11-18T09:55:05.893190",
+  "last_updated": "2025-11-18T09:55:05.893190",
+  "version": 1,
+  "table_count": 2,
+  "schema_hash": "7c134550daa8be4d35e38e8ab26dadd7",
+  "tables": [
+    "users",
+    "posts"
+  ]
+}
