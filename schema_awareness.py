@@ -136,7 +136,7 @@ class SchemaAwarenessModule:
                 self.db_type = DatabaseType.SQLITE
                 self.connection = sqlite3.connect(connection_params['database'])
                 self.connection.row_factory = sqlite3.Row
-                print(f"✓ Connected to SQLite database: {target_db}")
+                print("✓ Connected to SQLite database.")
                 
             else:
                 print(f"✗ Unsupported database type: {db_type}")
