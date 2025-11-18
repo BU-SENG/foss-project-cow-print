@@ -8,9 +8,10 @@ of the Command Processor in the system's logical pipeline.
 Workflow:
 1.  Loads the full database schema from a file (e.g., schema.txt).
 2.  Presents the user with available tables.
-3.  Allows the user to select specific tables for their query.
+3.  Allows the user to select specific tables for their query OR skip selection
+    for operations that don't require table-specific context (like CREATE TABLE).
 4.  Creates a "specialized snapshot" of the schema containing only the
-    selected tables.
+    selected tables, OR uses the full schema if no tables are selected.
 5.  Prompts the user for a Natural Language (NL) query and SQL dialect.
 6.  Constructs a CommandPayload and sends it to the Gemini AI Reasoning Core.
 7.  Receives the ReasonerOutput and displays the generated SQL and other
@@ -132,7 +133,7 @@ class CommandProcessor:
                 return None
         
         self.snapshot_version += 1
-        # The conceptual name "specialezd_table<n>" refers to this generated snapshot.
+        # The conceptual name "specialized_table<n>" refers to this generated snapshot.
         print(f"\nSuccessfully created specialized_snapshot (version {self.snapshot_version}) with {len(table_names)} tables.")
         
         return "\n\n".join(snapshot_parts)
@@ -151,60 +152,80 @@ class CommandProcessor:
             for i, table in enumerate(available_tables):
                 print(f"  {i+1}. {table}")
 
-            # Step 2: Get user table selection
-            tables_input = input("\nSelect tables to query by number or name (comma-separated), or type 'exit': ").strip()
+            # Step 2: Get user table selection (OPTIONAL)
+            print("\nOptions:")
+            print("  - Type 'all' to use ALL tables in the database")
+            print("  - Type specific table numbers/names (comma-separated) for selected tables")
+            print("  - Press ENTER to use full database schema (for CREATE TABLE, DROP, etc.)")
+            tables_input = input("Selection: ").strip()
+            
             if tables_input.lower() == 'exit':
                 break
             if tables_input.lower() == 'schema':
                 self.display_schema_as_json()
                 continue
-            if not tables_input:
-                print("Error: No tables selected. Please try again.")
-                continue
 
+            # Determine which schema to use
             selected_tables = []
-            parts = [p.strip() for p in tables_input.split(',')]
-            for part in parts:
-                if part.isdigit() and 1 <= int(part) <= len(available_tables):
-                    selected_tables.append(available_tables[int(part) - 1])
-                elif part in available_tables:
-                    selected_tables.append(part)
-                else:
-                    print(f"Warning: '{part}' is not a valid table name or number. It will be ignored.")
+            schema_to_use = None
+            use_full_schema = False
             
-            if not selected_tables:
-                print("Error: No valid tables were selected. Please try again.")
-                continue
-            
-            print(f"Tables selected for this query: {', '.join(selected_tables)}")
+            if not tables_input:
+                # User pressed ENTER - use full database schema
+                print("Using full database schema (database-level operations).")
+                schema_to_use = self.full_schema_text
+                use_full_schema = True
+            elif tables_input.lower() == 'all':
+                # User typed 'all' - use all tables
+                selected_tables = available_tables.copy()
+                print(f"Using ALL tables: {', '.join(selected_tables)}")
+                schema_to_use = self.create_specialized_snapshot(selected_tables)
+                if schema_to_use is None:
+                    continue
+            else:
+                # User selected specific tables
+                parts = [p.strip() for p in tables_input.split(',')]
+                for part in parts:
+                    if part.isdigit() and 1 <= int(part) <= len(available_tables):
+                        selected_tables.append(available_tables[int(part) - 1])
+                    elif part in available_tables:
+                        selected_tables.append(part)
+                    else:
+                        print(f"Warning: '{part}' is not a valid table name or number. It will be ignored.")
+                
+                if not selected_tables:
+                    print("Error: No valid tables were selected. Please try again.")
+                    continue
+                
+                print(f"Tables selected for this query: {', '.join(selected_tables)}")
+                
+                # Create specialized snapshot
+                schema_to_use = self.create_specialized_snapshot(selected_tables)
+                if schema_to_use is None:
+                    continue
 
-            # Step 3: Create the specialized snapshot
-            specialized_schema = self.create_specialized_snapshot(selected_tables)
-            if specialized_schema is None:
-                continue
-
-            # Step 4: Get user NL query and dialect
-            nl_query = input("Enter your Natural Language query: ").strip()
+            # Step 3: Get user NL query and dialect
+            nl_query = input("\nEnter your Natural Language query: ").strip()
             if not nl_query:
                 print("Error: Query cannot be empty.")
                 continue
             
             dialect = input("Enter SQL dialect (e.g., mysql, postgres) [default: mysql]: ").strip().lower() or "mysql"
 
-            # Step 5: Update reasoner schema and create CommandPayload
-            self.reasoner.update_schema(specialized_schema)
+            # Step 4: Update reasoner schema and create CommandPayload
+            self.reasoner.update_schema(schema_to_use)
             payload = CommandPayload(
                 intent="query",  # Defaulting to 'query' as CLP focuses on NL-to-SQL
                 raw_nl=nl_query,
                 dialect=dialect,
-                allow_destructive=False # Safety default
+                allow_destructive=False # Safety default - can be made interactive
             )
 
-            # Step 6: Call the Gemini Reasoner
+            # Step 5: Call the Gemini Reasoner
             print("\nTranslating NL to SQL via Gemini Reasoning Core...")
             output = self.reasoner.generate(payload)
 
-            # Step 7: Display the results
+            # Step 6: Display the results
             print("\n--- CLP Received from Reasoner ---")
             print(f"Generated SQL: {output.metadata.get('pretty', output.sql)}")
             print(f"Intent: {output.intent}")
@@ -216,7 +237,7 @@ class CommandProcessor:
             print(f"Errors: {output.errors}")
             print("----------------------------------\n")
 
-            # Step 8: Simulate Schema Awareness Module interaction
+            # Step 7: Simulate Schema Awareness Module interaction
             if output.safe_to_execute and output.intent in ["create_table", "alter", "delete", "update", "insert"]:
                 print("[CLP -> Schema Awareness Module]: Notifying module of potential schema change.")
                 update_confirm = input("A change was made. Do you wish to update the general snapshot? (yes/no): ").lower()
@@ -228,8 +249,9 @@ class CommandProcessor:
                 else:
                     print("[Schema Awareness Module]: Change acknowledged. General snapshot remains unchanged.")
             
-            # Per requirement, the specialized snapshot is always "deleted" after use.
-            print(f"[CLP]: Specialized snapshot version {self.snapshot_version} has been deleted after use.")
+            # Per requirement, the specialized snapshot is deleted after use (if one was created)
+            if not use_full_schema and selected_tables:
+                print(f"[CLP]: Specialized snapshot version {self.snapshot_version} has been deleted after use.")
 
 
 if __name__ == "__main__":
