@@ -1,5 +1,8 @@
 .env
+<<<<<<< HEAD
 # Note: Ensure to keep these values secure and not expose them in public repositories.
+=======
+>>>>>>> origin/main
 # .gitignore
 # Ignore environment files
 .env

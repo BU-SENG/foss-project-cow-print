@@ -1,0 +1,13 @@
+{
+  "database_name": "movies",
+  "database_type": "mysql",
+  "created_at": "2025-11-18T12:58:06.576685",
+  "last_updated": "2025-11-18T12:58:06.576685",
+  "version": 1,
+  "table_count": 2,
+  "schema_hash": "8aff3908a921689735663447a6521c50",
+  "tables": [
+    "movie",
+    "movie_cast"
+  ]
+}
