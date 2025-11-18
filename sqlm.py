@@ -425,6 +425,7 @@ class GeminiReasoner:
                 if text_after_fence.endswith("```"):
                     text = text_after_fence[:-3].strip()
             else:
+                text_after_fence = parts[0]
                 text = text_after_fence.strip()
 
 
