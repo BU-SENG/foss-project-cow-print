@@ -235,7 +235,7 @@ def display_available_tables():
     st.subheader("📊 Available Tables")
     
     if st.session_state.sam:
-        tables = st.session_state.sam._get_tables()
+        tables = st.session_state.sam.get_tables()
         
         col1, col2, col3 = st.columns([2, 1, 1])
         
