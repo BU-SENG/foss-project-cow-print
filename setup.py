@@ -82,8 +82,6 @@ def create_env_file():
     api_key = input("Enter your Gemini API Key (or press Enter to skip): ").strip()
     
     env_content = f"""# Gemini AI Configuration
-# The line `GEMINI_API_KEY={api_key or 'your_api_key_here'}` in the `create_env_file` function is
-# setting up the content for the `.env` file.
 GEMINI_API_KEY={api_key or 'your_api_key_here'}
 GEMINI_MODEL=models/gemini-2.5-pro
 GEMINI_MAX_TOKENS=8192
