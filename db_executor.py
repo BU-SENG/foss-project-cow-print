@@ -326,7 +326,6 @@ class DatabaseExecutor:
 
 # Example usage and testing
 if __name__ == "__main__":
-    import sqlite3
     
     # Create a test database
     conn = sqlite3.connect(":memory:")
