@@ -109,7 +109,7 @@ AetherDB/
 
 ```bash
 git clone https://github.com/BU-SENG/foss-project-cow-print
-cd AetherDB
+cd foss-project-cow-print
 ```
 
 ## **2. Run Setup Wizard**
