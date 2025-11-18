@@ -485,8 +485,8 @@ def display_query_interface():
 
                     # Failure Case
                     else:
-                         if formatted.get('warnings'):
-                             st.warning(f"Warnings: {formatted['warnings']}")
+                        if formatted.get('warnings'):
+                            st.warning(f"Warnings: {formatted['warnings']}")
                 
                 # Add to history
                 st.session_state.query_history.append({
