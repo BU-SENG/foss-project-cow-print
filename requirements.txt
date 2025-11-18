@@ -1,0 +1,10 @@
+streamlit>=1.28.0
+cryptography==46.0.3
+pandas>=2.0.0
+plotly>=5.17.0
+python-dotenv>=1.0.0
+sqlglot>=19.0.0
+sqlparse>=0.4.4
+google-generativeai>=0.3.0
+pymysql>=1.1.0
+psycopg2-binary>=2.9.0

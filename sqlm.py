@@ -22,6 +22,7 @@ import os
 import json
 import re
 import argparse
+import contextlib
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -137,14 +138,13 @@ def build_user_prompt(schema_snapshot: str, command_text: str, dialect: str) -> 
     # Ensure schema isn't ridiculously large; responsibility for pre-filtering is on caller.
     if len(schema_snapshot) > MAX_SCHEMA_PROMPT_CHARS:
         schema_snapshot = schema_snapshot[:MAX_SCHEMA_PROMPT_CHARS] + "\n...[TRUNCATED]"
-    prompt = (
+    return (
         f"{BASE_SYSTEM_PROMPT}\n\n"
         f"SCHEMA_SNAPSHOT:\n{schema_snapshot}\n\n"
         f"DIALECT: {dialect}\n\n"
         f"USER_REQUEST: {command_text}\n\n"
         f"Produce the JSON output matching the structure above."
     )
-    return prompt
 
 
 # -----------------------------
@@ -172,30 +172,23 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
             ast = parse_one(sql, read=dialect)
         except Exception as e:
             return False, [f"sqlglot parse error: {e}"], metadata
-
         # collect tables
         tables = set()
         for node in ast.find_all(exp.Table):
-            try:
+            with contextlib.suppress(Exception):
                 if hasattr(node.this, "name"):
                     tables.add(node.this.name)
                 else:
                     tables.add(str(node.this))
-            except Exception:
-                # Some AST nodes may not have the expected structure; safely skip these.
-                pass
 
         cols = set()
         for col in ast.find_all(exp.Column):
-            try:
-                tbl = col.table or None
+            with contextlib.suppress(Exception):
                 name = col.name
-                if tbl:
+                if tbl := (col.table or None):
                     cols.add(f"{tbl}.{name}")
                 else:
                     cols.add(name)
-            except Exception:
-                pass
 
         metadata["tables"] = list(tables)
         metadata["columns"] = list(cols)
@@ -218,11 +211,7 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
     # Fallback: minimal parsing, attempt to extract table names after FROM or INTO
     simple_tables = re.findall(r'\bfrom\s+([`"]?)(\w+)\1|\binto\s+([`"]?)(\w+)\3', sql, flags=re.IGNORECASE)
     tnames = []
-    for grp in simple_tables:
-        # groups may contain matches in different positions
-        for g in grp:
-            if g and re.fullmatch(r'\w+', g):
-                tnames.append(g)
+    tnames.extend(g for grp in simple_tables for g in grp if g and re.fullmatch(r'\w+', g))
     metadata["tables"] = list(set(tnames))
     metadata["columns"] = []  # can't infer reliably without parser
     return True, warnings, metadata
@@ -245,12 +234,9 @@ def simple_mock_llm_generate(prompt: str) -> str:
 
     # handle 'count' requests
     if re.search(r'\bcount\b', cmd_lower):
-        # find table name simple heuristic: "count .* from <table>" or "count how many <table>"
-        tbl = None
         m_from = re.search(r'from\s+([`"]?)(\w+)\1', cmd_lower)
-        if m_from:
-            tbl = m_from.group(2)
-        else:
+        tbl = m_from.group(2) if m_from else None
+        if not tbl:
             m_howmany = re.search(r'how many (\w+)', cmd_lower)
             if m_howmany:
                 tbl = m_howmany.group(1)
@@ -267,8 +253,7 @@ def simple_mock_llm_generate(prompt: str) -> str:
         return json.dumps(out)
 
     # handle "starts with" pattern
-    m_sw = re.search(r"surname\s+(?:that\s+)?starts\s+with\s+'?\"?([a-zA-Z0-9])", cmd_lower)
-    if m_sw:
+    if m_sw := re.search(r"surname\s+(?:that\s+)?starts\s+with\s+'?\"?([a-zA-Z0-9])", cmd_lower):
         ch = m_sw.group(1).upper()
         sql = f"SELECT * FROM students WHERE surname LIKE '{ch}%';"
         out = {
@@ -283,8 +268,7 @@ def simple_mock_llm_generate(prompt: str) -> str:
         return json.dumps(out)
 
     # handle create table simple pattern: "create a new table called X with fields a (int), b (varchar)"
-    m_ct = re.search(r'create\s+(?:a\s+)?(?:new\s+)?table\s+called\s+(\w+)\s+with\s+fields\s+(.+)', cmd_lower)
-    if m_ct:
+    if m_ct := re.search(r'create\s+(?:a\s+)?(?:new\s+)?table\s+called\s+(\w+)\s+with\s+fields\s+(.+)', cmd_lower):
         tbl = m_ct.group(1)
         raw_fields = m_ct.group(2)
         # naive field extraction: split by comma, take first word as name and default type varchar
@@ -305,8 +289,7 @@ def simple_mock_llm_generate(prompt: str) -> str:
         return json.dumps(out)
 
     # fallback: if "show me" or "show" and mention table
-    m_show = re.search(r'\bshow(?: me)?(?: all)?(?: the)?(?: rows)?(?: of)?\s*(\w+)', cmd_lower)
-    if m_show:
+    if m_show := re.search(r'\bshow(?: me)?(?: all)?(?: the)?(?: rows)?(?: of)?\s*(\w+)', cmd_lower):
         tbl = m_show.group(1)
         sql = f"SELECT * FROM {tbl};"
         out = {
@@ -434,19 +417,16 @@ class GeminiReasoner:
                     text = text_after_fence[:-3].strip()
                 else:
                     text = text_after_fence.strip()
-            else:
-                # if it started with ```json but didn't have content after, assume an issue
-                pass
+            # if it started with ```json but didn't have content after, assume an issue
         elif text.startswith("```"): # If it's just '```'
             parts = text.split("```", 1) # Split only once
             if len(parts) > 1:
                 text_after_fence = parts[1].strip()
                 if text_after_fence.endswith("```"):
                     text = text_after_fence[:-3].strip()
-                else:
-                    text = text_after_fence.strip()
             else:
-                pass
+                text_after_fence = parts[0]
+                text = text_after_fence.strip()
 
 
         # try direct json load
@@ -457,29 +437,28 @@ class GeminiReasoner:
             # salvage attempt: find first {...}
             s = text.find("{")
             e = text.rfind("}")
-            if s != -1 and e != -1 and e > s:
-                try:
-                    json_obj = json.loads(text[s:e+1])
-                except json.JSONDecodeError as ex2: # Catch specific JSON decode error for salvage
-                    # fail: return structured error
-                    return ReasonerOutput(
-                        sql=None,
-                        intent=cmd.intent,
-                        dialect=dialect,
-                        warnings=[],
-                        errors=[f"Failed to parse model JSON: {ex}. Salvage attempt also failed: {ex2}", "raw_output_snippet:" + text[:1000]],
-                        metadata={},
-                        explain_text=None,
-                        confidence=0.0,
-                        safe_to_execute=False
-                    )
-            else:
+            if s == -1 or e == -1 or e <= s:
                 return ReasonerOutput(
                     sql=None,
                     intent=cmd.intent,
                     dialect=dialect,
                     warnings=[],
                     errors=[f"Model output not valid JSON and no JSON blob found: {ex}. Raw output snippet: {text[:1000]}"],
+                    metadata={},
+                    explain_text=None,
+                    confidence=0.0,
+                    safe_to_execute=False
+                )
+            try:
+                json_obj = json.loads(text[s:e+1])
+            except json.JSONDecodeError as ex2: # Catch specific JSON decode error for salvage
+                # fail: return structured error
+                return ReasonerOutput(
+                    sql=None,
+                    intent=cmd.intent,
+                    dialect=dialect,
+                    warnings=[],
+                    errors=[f"Failed to parse model JSON: {ex}. Salvage attempt also failed: {ex2}", f"raw_output_snippet:{text[:1000]}"],
                     metadata={},
                     explain_text=None,
                     confidence=0.0,
