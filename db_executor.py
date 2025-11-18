@@ -14,7 +14,6 @@ Key Responsibilities:
 """
 
 import sqlite3
-import pymysql
 import psycopg2
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, asdict
