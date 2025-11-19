@@ -18,7 +18,7 @@ into
 
 It uses:
 
-* **Gemini 2.5 Pro** for advanced reasoning
+* **Gemini 2.5 Pro** for advanced reasoning.
 * **Automatic Schema Awareness**
 * **Safe SQL Execution Layer**
 * **Streamlit Frontend** with chart visualizations
