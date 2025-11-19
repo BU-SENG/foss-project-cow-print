@@ -6,6 +6,7 @@ A beautiful, intuitive interface for natural language to SQL conversion
 with real-time database execution and visualization.
 """
 
+from typing import Dict
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -28,54 +29,41 @@ st.set_page_config(
 # Custom CSS for beautiful styling
 st.markdown("""
     <style>
-    .main {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    .stApp {
-        background: transparent;
-    }
-    div[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
-    }
-    .success-box {
-        padding: 1.5rem;
+    /* ... existing CSS ... */
+    
+    /* NEW: SQL Editor Styling */
+    .sql-editor-container {
+        background: #f8f9fa;
+        padding: 1rem;
         border-radius: 0.5rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        margin: 1rem 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    .metric-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
-    }
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    }
-    .query-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 0.75rem;
-        margin: 1rem 0;
         border-left: 4px solid #667eea;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin: 1rem 0;
     }
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
+    
+    textarea[aria-label*="edit"] {
+        font-family: 'Courier New', monospace !important;
+        font-size: 14px !important;
+        background: #1e1e2e !important;
+        color: #00ff00 !important;
+        border: 2px solid #667eea !important;
+    }
+    
+    .refinement-box {
+        background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+        padding: 1rem;
         border-radius: 0.5rem;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s;
+        margin: 0.5rem 0;
     }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+    
+    /* Execute button highlight */
+    button[kind="primary"] {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+        50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -93,6 +81,20 @@ if 'query_history' not in st.session_state:
     st.session_state.query_history = []
 if 'current_schema' not in st.session_state:
     st.session_state.current_schema = None
+if 'generated_output' not in st.session_state:
+    st.session_state.generated_output = None
+if 'current_nl_query' not in st.session_state:
+    st.session_state.current_nl_query = ""
+if 'current_dialect' not in st.session_state:
+    st.session_state.current_dialect = "mysql"
+if 'current_allow_destructive' not in st.session_state:
+    st.session_state.current_allow_destructive = False
+if 'current_dry_run' not in st.session_state:
+    st.session_state.current_dry_run = False
+if 'execute_edited_sql' not in st.session_state:
+    st.session_state.execute_edited_sql = False
+if 'last_execution_result' not in st.session_state:
+    st.session_state.last_execution_result = None
 
 
 def display_header():
@@ -129,7 +131,7 @@ def sidebar_database_connection():
                 help="Path to your SQLite database file"
             )
             
-            if st.sidebar.button("🔌 Connect", use_container_width=True):
+            if st.sidebar.button("🔌 Connect", width="stretch"):
                 with st.spinner("Connecting to database..."):
                     try:
                         sam = SchemaAwarenessModule()
@@ -165,7 +167,7 @@ def sidebar_database_connection():
             password = st.sidebar.text_input("Password", type="password")
             database = st.sidebar.text_input("Database Name")
             
-            if st.sidebar.button("🔌 Connect", use_container_width=True):
+            if st.sidebar.button("🔌 Connect", width="stretch"):
                 if not all([user, password, database]):
                     st.sidebar.error("❌ Please fill in all fields")
                 else:
@@ -213,7 +215,7 @@ def sidebar_database_connection():
                 **Version:** {metadata.version}
             """)
         
-        if st.sidebar.button("🔄 Refresh Schema", use_container_width=True):
+        if st.sidebar.button("🔄 Refresh Schema", width="stretch"):
             with st.spinner("Refreshing schema..."):
                 st.session_state.sam.generate_full_schema()
                 with open(st.session_state.sam.schema_file, 'r') as f:
@@ -221,7 +223,7 @@ def sidebar_database_connection():
                 st.session_state.reasoner.update_schema(schema_text)
                 st.sidebar.success("✅ Schema refreshed!")
         
-        if st.sidebar.button("🔌 Disconnect", use_container_width=True):
+        if st.sidebar.button("🔌 Disconnect", width="stretch"):
             st.session_state.sam.close()
             st.session_state.connected = False
             st.session_state.sam = None
@@ -283,6 +285,91 @@ def display_available_tables():
                     st.markdown(f"{icon} **{table}**")
 
 
+def display_execution_results(formatted: Dict, sql: str, intent: str):
+    """
+    Display query execution results with visualizations
+    
+    Args:
+        formatted: Formatted execution result from executor
+        sql: The SQL query that was executed
+        intent: Query intent (select/insert/update/delete)
+    """
+    # Status message
+    if formatted['success']:
+        st.success(f"✅ {formatted['message']}")
+    else:
+        st.error("❌ Execution Failed")
+        st.error(f"Error Details: {formatted['error']}")
+
+    # Stats Bar
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Execution Time", formatted['execution_time'])
+    with col2:
+        st.metric("Rows Affected/Returned", formatted['rows_affected'])
+    with col3:
+        st.metric("Status", formatted['status'].upper())
+    
+    # Show Data (Success Case)
+    if formatted['success']:
+        if formatted['has_data'] and formatted['data']:
+            st.markdown("#### 📊 Query Output")
+            df = pd.DataFrame(formatted['data'])
+            st.dataframe(df, width="stretch", height=400)
+            
+            # Download button
+            csv = df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download Results as CSV",
+                data=csv,
+                file_name=f"query_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv"
+            )
+            
+            # Visualization
+            numeric_cols = df.select_dtypes(include=['number']).columns
+            if len(numeric_cols) > 0:
+                st.markdown("#### 📈 Data Visualization")
+                viz_col1, viz_col2 = st.columns(2)
+                
+                with viz_col1:
+                    chart_type = st.selectbox(
+                        "Chart Type",
+                        ["Bar Chart", "Line Chart", "Scatter Plot", "Pie Chart"],
+                        key="chart_type_selector"
+                    )
+                
+                with viz_col2:
+                    y_col = st.selectbox("Y-Axis", numeric_cols, key="y_axis_selector")
+                
+                # Generate chart
+                if chart_type == "Bar Chart" and len(df.columns) >= 2:
+                    fig = px.bar(df, x=df.columns[0], y=y_col)
+                    st.plotly_chart(fig, width="stretch")
+                elif chart_type == "Line Chart" and len(df.columns) >= 2:
+                    fig = px.line(df, x=df.columns[0], y=y_col)
+                    st.plotly_chart(fig, width="stretch")
+                elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
+                    x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
+                    fig = px.scatter(df, x=x_col, y=y_col)
+                    st.plotly_chart(fig, width="stretch")
+                elif chart_type == "Pie Chart" and len(df.columns) >= 2:
+                    fig = px.pie(df, names=df.columns[0], values=y_col)
+                    st.plotly_chart(fig, width="stretch")
+
+        elif formatted['columns']: 
+            # Query worked (SELECT/SHOW) but returned 0 rows
+            st.warning("⚠️ Query executed successfully, but returned 0 results (Empty Set).")
+        else:
+            # Query worked (INSERT/UPDATE) and has no return columns
+            st.info(f"ℹ️ Operation completed. {formatted['rows_affected']} rows were affected.")
+
+    # Failure Case
+    else:
+        if formatted.get('warnings'):
+            st.warning(f"Warnings: {formatted['warnings']}")
+
+
 def display_query_interface():
     """Main query interface"""
     st.subheader("💬 Natural Language Query")
@@ -320,14 +407,15 @@ def display_query_interface():
     # Execute button
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        execute_btn = st.button("🚀 Generate & Execute SQL", use_container_width=True)
+        execute_btn = st.button("🚀 Generate SQL", width="stretch")
     with col2:
-        if st.button("🗑️ Clear History", use_container_width=True):
+        if st.button("🗑️ Clear History", width="stretch"):
             st.session_state.query_history = []
             if st.session_state.executor:
                 st.session_state.executor.clear_history()
             st.rerun()
     
+    # ========== MAIN GENERATION LOGIC ==========
     if execute_btn and nl_query:
         with st.spinner("🤖 AI is thinking..."):
             try:
@@ -363,143 +451,216 @@ def display_query_interface():
                 # Generate SQL
                 output = st.session_state.reasoner.generate(payload)
                 
-                # Display generated SQL
-                st.markdown("### 📝 Generated SQL")
-                st.code(output.sql or "No SQL generated", language="sql")
+                # Store in session state for editing
+                st.session_state.generated_output = output
+                st.session_state.current_nl_query = nl_query
+                st.session_state.current_dialect = dialect
+                st.session_state.current_allow_destructive = allow_destructive
+                st.session_state.current_dry_run = dry_run
                 
-                # Display metadata
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Intent", output.intent.upper())
-                with col2:
-                    st.metric("Confidence", f"{output.confidence:.0%}")
-                with col3:
-                    st.metric("Safety", "✅ Safe" if output.safe_to_execute else "⚠️ Blocked")
-                with col4:
-                    st.metric("Dialect", output.dialect.upper())
-                
-                # Display explanation
-                if output.explain_text:
-                    st.info(f"💡 **Explanation:** {output.explain_text}")
-                
-                # Display warnings
-                if output.warnings:
-                    for warning in output.warnings:
-                        st.warning(f"⚠️ {warning}")
-                
-                # Display errors
-                if output.errors:
-                    for error in output.errors:
-                        st.error(f"❌ {error}")
-                
-                # Execute SQL if safe
-                if output.sql and output.safe_to_execute:
-                    st.markdown("---")
-                    st.markdown("### 🎯 Execution Results")
+                # AUTO-EXECUTE if confidence >= 90%
+                if output.confidence >= 0.90 and output.safe_to_execute and output.sql:
+                    st.info(f"🚀 High confidence ({output.confidence:.0%}) - Auto-executing query...")
                     
                     # Determine if destructive
-                    is_destructive = output.intent in ["insert", "update", "delete", "alter", "create_table", "drop"]
+                    is_destructive = any(keyword in output.sql.lower() for keyword in 
+                                        ["insert", "update", "delete", "alter", "create", "drop", "truncate"])
                     
-                    # Execute
-                    exec_result = st.session_state.executor.execute_query(
-                        output.sql,
-                        safe_to_execute=output.safe_to_execute,
-                        is_destructive=is_destructive,
-                        dry_run=dry_run
-                    )
-                    
-                    # Format and display results
-                    formatted = st.session_state.executor.format_results_for_display(exec_result)
-                    
-                    # ---------------------------------------------------------
-                    # NEW IMPROVED DISPLAY LOGIC
-                    # ---------------------------------------------------------
-                    
-                    if formatted['success']:
-                        st.success(f"✅ {formatted['message']}")
+                    # Check if destructive operation is allowed
+                    if is_destructive and not allow_destructive:
+                        st.warning("⚠️ Auto-execution skipped: Destructive operation requires manual approval")
+                    elif dry_run:
+                        st.info("ℹ️ Dry run mode - SQL generated but not executed")
                     else:
-                        st.error(f"❌ Execution Failed")
-                        st.error(f"Error Details: {formatted['error']}")
-
-                    # Stats Bar
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Execution Time", formatted['execution_time'])
-                    with col2:
-                        st.metric("Rows Affected/Returned", formatted['rows_affected'])
-                    with col3:
-                        st.metric("Status", formatted['status'].upper())
-                    
-                    # Show Data (Success Case)
-                    if formatted['success']:
-                        if formatted['has_data'] and formatted['data']:
-                            st.markdown("#### 📊 Query Output")
-                            df = pd.DataFrame(formatted['data'])
-                            st.dataframe(df, use_container_width=True, height=400)
-                            
-                            # Download button
-                            csv = df.to_csv(index=False)
-                            st.download_button(
-                                label="📥 Download Results as CSV",
-                                data=csv,
-                                file_name=f"query_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                                mime="text/csv"
-                            )
-                            
-                            # Visualization
-                            numeric_cols = df.select_dtypes(include=['number']).columns
-                            if len(numeric_cols) > 0:
-                                st.markdown("#### 📈 Data Visualization")
-                                viz_col1, viz_col2 = st.columns(2)
-                                
-                                with viz_col1:
-                                    chart_type = st.selectbox(
-                                        "Chart Type",
-                                        ["Bar Chart", "Line Chart", "Scatter Plot", "Pie Chart"]
-                                    )
-                                
-                                with viz_col2:
-                                    y_col = st.selectbox("Y-Axis", numeric_cols)
-                                
-                                # Generate chart
-                                if chart_type == "Bar Chart" and len(df.columns) >= 2:
-                                    fig = px.bar(df, x=df.columns[0], y=y_col)
-                                    st.plotly_chart(fig, use_container_width=True)
-                                elif chart_type == "Line Chart" and len(df.columns) >= 2:
-                                    fig = px.line(df, x=df.columns[0], y=y_col)
-                                    st.plotly_chart(fig, use_container_width=True)
-                                elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
-                                    x_col = st.selectbox("X-Axis", numeric_cols)
-                                    fig = px.scatter(df, x=x_col, y=y_col)
-                                    st.plotly_chart(fig, use_container_width=True)
-                                elif chart_type == "Pie Chart" and len(df.columns) >= 2:
-                                    fig = px.pie(df, names=df.columns[0], values=y_col)
-                                    st.plotly_chart(fig, use_container_width=True)
-
-                        elif formatted['columns']: 
-                            # Query worked (SELECT/SHOW) but returned 0 rows
-                            st.warning("⚠️ Query executed successfully, but returned 0 results (Empty Set).")
-                        else:
-                            # Query worked (INSERT/UPDATE) and has no return columns
-                            st.info(f"ℹ️ Operation completed. {formatted['rows_affected']} rows were affected.")
-
-                    # Failure Case
-                    else:
-                        if formatted.get('warnings'):
-                            st.warning(f"Warnings: {formatted['warnings']}")
+                        # Execute automatically
+                        exec_result = st.session_state.executor.execute_query(
+                            output.sql,
+                            safe_to_execute=True,
+                            is_destructive=is_destructive,
+                            dry_run=False
+                        )
+                        
+                        # Format results
+                        formatted = st.session_state.executor.format_results_for_display(exec_result)
+                        
+                        # Save to session state
+                        st.session_state.last_execution_result = {
+                            "formatted": formatted,
+                            "sql": output.sql,
+                            "intent": output.intent
+                        }
+                        
+                        # Add to history
+                        st.session_state.query_history.append({
+                            "timestamp": datetime.now().isoformat(),
+                            "nl_query": nl_query,
+                            "sql": output.sql,
+                            "intent": output.intent,
+                            "success": formatted['success'],
+                            "result": formatted,
+                            "auto_executed": True
+                        })
+                        
+                        st.success("✅ Query auto-executed successfully!")
                 
-                # Add to history
-                st.session_state.query_history.append({
-                    "timestamp": datetime.now().isoformat(),
-                    "nl_query": nl_query,
-                    "sql": output.sql,
-                    "intent": output.intent,
-                    "success": output.safe_to_execute,
-                    "result": formatted if output.safe_to_execute else None
-                })
+                elif output.confidence < 0.90:
+                    st.warning(f"⚠️ Low confidence ({output.confidence:.0%}) - Please review SQL before executing")
                 
             except Exception as e:
                 st.error(f"❌ An error occurred: {str(e)}")
+                return
+    
+    # ========== DISPLAY & EDIT SQL ==========
+    if 'generated_output' in st.session_state and st.session_state.generated_output:
+        output = st.session_state.generated_output
+        
+        st.markdown("---")
+        st.markdown("### 📝 Generated SQL")
+        
+        # Display metadata first
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Intent", output.intent.upper())
+        with col2:
+            st.metric("Confidence", f"{output.confidence:.0%}")
+        with col3:
+            st.metric("Safety", "✅ Safe" if output.safe_to_execute else "⚠️ Blocked")
+        with col4:
+            st.metric("Dialect", output.dialect.upper())
+        
+        # Display explanation
+        if output.explain_text:
+            st.info(f"💡 **Explanation:** {output.explain_text}")
+        
+        # Display warnings
+        if output.warnings:
+            for warning in output.warnings:
+                st.warning(f"⚠️ {warning}")
+        
+        # Display errors
+        if output.errors:
+            for error in output.errors:
+                st.error(f"❌ {error}")
+        
+        # ========== SQL EDITOR WITH REFINEMENT ==========
+        st.markdown("#### ✏️ Review & Edit SQL")
+        
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            # Editable SQL text area
+            edited_sql = st.text_area(
+                "You can manually edit the SQL or click 'Refine with AI' below",
+                value=output.sql if output.sql else "",
+                height=150,
+                key="sql_editor",
+                help="Edit the SQL directly or use the refinement box below"
+            )
+        
+        with col2:
+            st.markdown("**Quick Actions**")
+            
+            # Refinement prompt
+            refinement = st.text_input(
+                "AI Refinement",
+                placeholder="e.g., add ORDER BY, add LIMIT 10",
+                help="Tell AI how to modify the SQL",
+                key="refinement_prompt"
+            )
+            
+            if st.button("🔄 Refine with AI", width="stretch"):
+                if refinement:
+                    with st.spinner("🤖 Refining SQL..."):
+                        try:
+                            # Create refinement payload
+                            refinement_nl = f"{st.session_state.current_nl_query}. Also, {refinement}"
+                            
+                            payload = CommandPayload(
+                                intent="query",
+                                raw_nl=refinement_nl,
+                                dialect=st.session_state.current_dialect,
+                                allow_destructive=st.session_state.current_allow_destructive
+                            )
+                            
+                            # Regenerate
+                            refined_output = st.session_state.reasoner.generate(payload)
+                            st.session_state.generated_output = refined_output
+                            st.rerun()
+                            
+                        except Exception as e:
+                            st.error(f"Refinement failed: {e}")
+                else:
+                    st.warning("Please enter a refinement instruction")
+            
+            # Manual execution button
+            if st.button("▶️ Execute Edited SQL", width="stretch", type="primary"):
+                st.session_state.execute_edited_sql = True
+                st.rerun()
+            
+            # Copy SQL button
+            st.code("", language="sql")  # Spacer
+            if st.button("📋 Copy SQL", width="stretch"):
+                st.toast("✅ SQL copied to clipboard!", icon="📋")
+        
+        # ========== EXECUTE EDITED SQL ==========
+        if st.session_state.get('execute_edited_sql', False):
+            st.session_state.execute_edited_sql = False  # Reset flag immediately
+            
+            if edited_sql and edited_sql.strip():
+                try:
+                    # Determine if destructive
+                    is_destructive = any(keyword in edited_sql.lower() for keyword in 
+                                        ["insert", "update", "delete", "alter", "create", "drop", "truncate"])
+                    
+                    # Check if destructive operation is allowed
+                    if is_destructive and not st.session_state.current_allow_destructive:
+                        st.error("❌ Destructive operation detected but not allowed!")
+                        st.warning("⚠️ Enable 'Allow Destructive Operations' checkbox to execute this query")
+                    else:
+                        # Execute
+                        exec_result = st.session_state.executor.execute_query(
+                            edited_sql,
+                            safe_to_execute=True,  # User manually approved
+                            is_destructive=is_destructive,
+                            dry_run=st.session_state.current_dry_run
+                        )
+                        
+                        # Format results
+                        formatted = st.session_state.executor.format_results_for_display(exec_result)
+                        
+                        # SAVE TO SESSION STATE (This fixes the crash/disappear issue)
+                        st.session_state.last_execution_result = {
+                            "formatted": formatted,
+                            "sql": edited_sql,
+                            "intent": output.intent
+                        }
+                        
+                        # Add to history
+                        st.session_state.query_history.append({
+                            "timestamp": datetime.now().isoformat(),
+                            "nl_query": st.session_state.current_nl_query,
+                            "sql": edited_sql,
+                            "intent": output.intent,
+                            "success": formatted['success'],
+                            "result": formatted,
+                            "manually_edited": True
+                        })
+                        
+                        # Force a rerun to render the results safely
+                        st.rerun()
+                
+                except Exception as e:
+                    st.error(f"❌ Execution error: {str(e)}")
+            else:
+                st.warning("⚠️ SQL is empty. Please generate or enter a query first.")
+
+        # ========== PERSISTENT DISPLAY LOGIC ==========
+        # This runs outside the 'if' block so it stays visible after interaction
+        if st.session_state.get("last_execution_result"):
+            st.markdown("---")
+            st.markdown("### 🎯 Execution Results")
+            res = st.session_state.last_execution_result
+            display_execution_results(res["formatted"], res["sql"], res["intent"])
 
 
 def display_query_history():
@@ -511,12 +672,31 @@ def display_query_history():
     st.subheader("📜 Query History")
     
     for idx, item in enumerate(reversed(st.session_state.query_history[-5:])):
-        with st.expander(f"Query {len(st.session_state.query_history) - idx}: {item['nl_query'][:50]}..."):
+        # Add indicator if manually edited or auto-executed
+        if item.get('auto_executed', False):
+            badge = "🚀 AUTO-EXECUTED"
+        elif item.get('manually_edited', False):
+            badge = "✏️ EDITED"
+        else:
+            badge = ""
+        
+        with st.expander(f"Query {len(st.session_state.query_history) - idx}: {item['nl_query'][:50]}... {badge}"):
             st.markdown(f"**Time:** {item['timestamp']}")
             st.markdown(f"**Intent:** {item['intent']}")
+            
+            if item.get('auto_executed'):
+                st.success("🚀 This query was auto-executed (confidence ≥90%)")
+            elif item.get('manually_edited'):
+                st.info("💡 This SQL was manually edited by the user")
+            
             st.code(item['sql'], language="sql")
+            
             if item['success']:
                 st.success("✅ Executed successfully")
+                
+                # Show result preview if available
+                if item.get('result') and item['result'].get('has_data'):
+                    st.markdown(f"**Rows returned:** {item['result']['rows_affected']}")
             else:
                 st.error("❌ Execution blocked or failed")
 
@@ -560,7 +740,7 @@ def display_statistics():
                 height=200,
                 margin=dict(l=0, r=0, t=0, b=0)
             )
-            st.sidebar.plotly_chart(fig, use_container_width=True)
+            st.sidebar.plotly_chart(fig, width="stretch")
 
 
 def main():
