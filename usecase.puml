@@ -1,0 +1,29 @@
+@startuml
+actor User
+actor Admin
+
+rectangle "AI Database Query System" {
+    User --> (Submit Natural Language Query)
+    User --> (View Query Results)
+    User --> (Explore Schema)
+    User --> (Edit / Confirm Generated SQL)
+    Admin --> (Manage Databases)
+    Admin --> (View Logs & Reports)
+    Admin --> (Configure Users & Permissions)
+}
+
+rectangle "AI/NLP Module (Gemini)" {
+    (Generate SQL from Query)
+    (Explain Results in Natural Language)
+}
+
+rectangle "Database" {
+    (Execute SQL Query)
+    (Provide Schema Metadata)
+}
+
+(Submit Natural Language Query) --> (Generate SQL from Query)
+(Generate SQL from Query) --> (Execute SQL Query)
+(View Query Results) --> (Explain Results in Natural Language)
+(Explore Schema) --> (Provide Schema Metadata)
+@enduml

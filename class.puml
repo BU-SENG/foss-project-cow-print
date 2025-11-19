@@ -1,0 +1,74 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+class StreamlitApp {
+    +run()
+    +display_ui()
+    +handle_user_input()
+    +show_tables()
+    +show_columns()
+    +submit_query()
+    +display_results()
+}
+
+class SchemaAwarenessModule {
+    -schema_snapshot: dict
+    +load_schema(file_path: str)
+    +get_tables(): list
+    +get_columns(table: str): list
+    +describe_table(table: str): str
+}
+
+class GeminiReasoner {
+    -context: dict
+    -query: str
+    +parse_query(query: str)
+    +generate_sql(): str
+    +validate_sql(sql: str): bool
+    +explain_results(results): str
+}
+
+class DBExecutor {
+    -connection_string: str
+    +connect_db(db_file: str)
+    +execute_sql(sql: str)
+    +fetch_results(): list
+    +handle_transactions()
+}
+
+class QueryValidator {
+    +validate_sql(sql: str)
+    +prevent_destructive_operations(sql: str)
+}
+
+class ContextMemory {
+    -active_db: str
+    -active_table: str
+    -last_query: str
+    +read_context()
+    +write_context()
+}
+
+class DialectAdapter {
+    +map_sql_to_db(sql: str, db_type: str)
+}
+
+class OutputHandler {
+    +format_results_table(results)
+    +format_results_json(results)
+    +format_results_nl(results)
+}
+
+' Relationships
+StreamlitApp --> SchemaAwarenessModule : uses
+StreamlitApp --> GeminiReasoner : uses
+StreamlitApp --> DBExecutor : uses
+StreamlitApp --> OutputHandler : uses
+DBExecutor --> QueryValidator : validates
+GeminiReasoner --> DBExecutor : executes SQL
+DBExecutor --> SchemaAwarenessModule : reads schema
+GeminiReasoner --> ContextMemory : reads/writes
+DBExecutor --> ContextMemory : updates
+DBExecutor --> DialectAdapter : maps SQL
+@enduml

@@ -1,0 +1,17 @@
+@startuml
+start
+:User opens AI Database Query System;
+:User submits natural language query;
+:ContextMemory reads active DB/table;
+if (User requests schema info?) then (yes)
+  :SchemaAwarenessModule fetches tables/columns;
+endif
+:GeminiReasoner parses query and generates SQL;
+:QueryValidator validates SQL;
+:GeminiReasoner calls DialectAdapter to adapt SQL for target DB;
+:GeminiReasoner calls DBExecutor to execute adapted SQL;
+:ContextMemory updates last query/results;
+:OutputHandler formats results;
+:StreamlitApp displays results to user;
+stop
+@enduml
