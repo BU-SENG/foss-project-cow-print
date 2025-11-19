@@ -65,10 +65,10 @@ StreamlitApp --> SchemaAwarenessModule : uses
 StreamlitApp --> GeminiReasoner : uses
 StreamlitApp --> DBExecutor : uses
 StreamlitApp --> OutputHandler : uses
-GeminiReasoner --> QueryValidator : validates
+DBExecutor --> QueryValidator : validates
 GeminiReasoner --> DBExecutor : executes SQL
 DBExecutor --> SchemaAwarenessModule : reads schema
 GeminiReasoner --> ContextMemory : reads/writes
 DBExecutor --> ContextMemory : updates
-GeminiReasoner --> DialectAdapter : maps SQL
+DBExecutor --> DialectAdapter : maps SQL
 @enduml
