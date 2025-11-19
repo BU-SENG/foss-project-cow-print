@@ -11,7 +11,7 @@ INSTRUCTIONS FOR PERSON 2:
 5. Push to your branch: git checkout -b person2/business-logic
 6. Commit: git add aetherdb_ui/business_logic.py
 7. Push: git push -u origin person2/business-logic
-"""
+"""""""""
 
 import streamlit as st
 from datetime import datetime
