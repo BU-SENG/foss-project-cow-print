@@ -18,7 +18,7 @@ import base64
 def print_header():
     """Print a beautiful header"""
     print("\n" + "="*70)
-    print("🤖  GEMINI SQL ASSISTANT - SETUP WIZARD  🤖".center(70))
+    print("🤖  AetherDB- SETUP WIZARD  🤖".center(70))
     print("="*70 + "\n")
 
 
