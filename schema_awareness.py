@@ -134,7 +134,7 @@ class SchemaAwarenessModule:
                 
             elif db_type_lower == "sqlite":
                 self.db_type = DatabaseType.SQLITE
-                self.connection = sqlite3.connect(connection_params['database'])
+                self.connection = sqlite3.connect(connection_params['database'], check_same_thread=False)
                 self.connection.row_factory = sqlite3.Row
                 print("✓ Connected to SQLite database.")
                 
@@ -188,6 +188,27 @@ class SchemaAwarenessModule:
             
         finally:
             cursor.close()
+
+    def get_tables(self) -> List[str]:
+        """
+        Public method to get list of all tables in the database.
+        Falls back to metadata if available.
+        
+        Returns:
+            List of table names
+        """
+        try:
+            # Try to get from current metadata first (more reliable)
+            if self.current_metadata and self.current_metadata.tables:
+                return self.current_metadata.tables
+            
+            # Otherwise query the database
+            if self.connection:
+                return self._get_tables()
+        except Exception as e:
+            print(f"[SAM] Error getting tables: {e}")
+        
+        return []
 
     def _get_table_schema(self, table_name: str) -> TableSchema:
         """Get detailed schema information for a specific table"""

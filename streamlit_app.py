@@ -283,53 +283,171 @@ def display_available_tables():
                     st.markdown(f"{icon} **{table}**")
 
 
+def get_example_queries():
+    """Return example queries based on available tables"""
+    examples = {
+        "SELECT": [
+            "Show me all records from the first table",
+            "Count the total number of records",
+            "Find records where the first column starts with 'A'",
+            "Get the top 10 records sorted by the most recent",
+            "Show me all unique values in the first column"
+        ],
+        "ANALYSIS": [
+            "What's the average value across all records?",
+            "Show me the distribution of records by category",
+            "Find any records with null values",
+            "Calculate the total sum for numeric columns",
+            "Show me records that match a specific pattern"
+        ],
+        "ADMIN": [
+            "How many tables are in this database?",
+            "Show me the schema of all tables",
+            "List all column names and their types",
+            "Create a backup of the database structure",
+            "Show me table and column statistics"
+        ]
+    }
+    return examples
+
+
 def display_query_interface():
-    """Main query interface"""
-    st.subheader("💬 Natural Language Query")
+    """Main query interface with improved UX"""
+    # Main section title with styling
+    st.markdown("""
+        <div style='padding: 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    border-radius: 0.75rem; margin-bottom: 1.5rem;'>
+            <h2 style='color: white; margin: 0; font-size: 1.8rem;'>
+                💬 Natural Language Query Interface
+            </h2>
+            <p style='color: rgba(255,255,255,0.9); margin: 0.5rem 0 0 0;'>
+                Ask anything in plain English and let AI transform it to SQL
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Query input
-    col1, col2 = st.columns([3, 1])
+    # Create two main columns: Query input (left) and Options (right)
+    col_query, col_options = st.columns([2, 1], gap="medium")
     
-    with col1:
+    # ===== LEFT COLUMN: QUERY INPUT AREA =====
+    with col_query:
+        st.markdown("### 📝 Your Question")
+        
+        # Initialize query value from session state if example was selected
+        initial_query = ""
+        if 'example_selected' in st.session_state and st.session_state.example_selected:
+            initial_query = st.session_state.example_selected
+        
+        # Prominent query input area
         nl_query = st.text_area(
-            "Enter your question in plain English",
+            "Enter your question",
+            value=initial_query,
             placeholder="e.g., Show me all students whose surname starts with 'A'\n     Count how many classes exist\n     Create a new table called courses with columns id, name, credits",
-            height=120,
-            help="Type your question naturally - the AI will convert it to SQL"
+            height=150,
+            help="Type your question naturally - the AI will convert it to SQL",
+            label_visibility="collapsed"
         )
+        
+        # Example queries section with tabs
+        st.markdown("#### 💡 Example Queries")
+        example_tabs = st.tabs(["SELECT", "ANALYSIS", "ADMIN"])
+        examples = get_example_queries()
+        
+        for tab, (category, queries) in zip(example_tabs, examples.items()):
+            with tab:
+                for i, example in enumerate(queries, 1):
+                    if st.button(
+                        f"{i}. {example}",
+                        use_container_width=True,
+                        key=f"example_{category}_{i}",
+                        help="Click to populate the query field"
+                    ):
+                        st.session_state.example_selected = example
+                        st.rerun()
     
-    with col2:
+    # ===== RIGHT COLUMN: OPTIONS =====
+    with col_options:
+        st.markdown("### ⚙️ Settings")
+        
         dialect = st.selectbox(
             "SQL Dialect",
             ["mysql", "postgresql", "sqlite"],
-            index=0
+            index=0,
+            help="Choose your database SQL dialect"
         )
         
+        st.markdown("---")
+        
         allow_destructive = st.checkbox(
-            "Allow Destructive Operations",
+            "🔓 Allow Destructive Ops",
             value=False,
             help="Enable INSERT, UPDATE, DELETE, DROP operations"
         )
         
         dry_run = st.checkbox(
-            "Dry Run (Preview Only)",
+            "👁️ Dry Run Mode",
             value=False,
-            help="Generate SQL without executing it"
+            help="Preview SQL without executing"
+        )
+        
+        st.markdown("---")
+        
+        # Info box
+        st.info(
+            "💡 **Tip:** Be specific with your questions for better SQL generation. "
+            "Mention table names or column characteristics if known."
         )
     
-    # Execute button
-    col1, col2, col3 = st.columns([1, 1, 2])
-    with col1:
-        execute_btn = st.button("🚀 Generate & Execute SQL", use_container_width=True)
-    with col2:
-        if st.button("🗑️ Clear History", use_container_width=True):
-            st.session_state.query_history = []
-            if st.session_state.executor:
-                st.session_state.executor.clear_history()
-            st.rerun()
+    # Action buttons - Full width below
+    st.markdown("---")
     
+    button_col1, button_col2, button_col3, button_col4 = st.columns([1.5, 1.5, 1, 1], gap="small")
+    
+    with button_col1:
+        execute_btn = st.button(
+            "🚀 Generate & Execute SQL",
+            use_container_width=True,
+            type="primary",
+            help="Generate SQL and execute the query"
+        )
+    
+    with button_col2:
+        clear_btn = st.button(
+            "🗑️ Clear History",
+            use_container_width=True,
+            help="Clear all previous queries"
+        )
+    
+    with button_col3:
+        st.empty()  # Spacer
+    
+    with button_col4:
+        st.empty()  # Spacer
+    
+    if clear_btn:
+        st.session_state.query_history = []
+        if st.session_state.executor:
+            st.session_state.executor.clear_history()
+        st.session_state.example_selected = None
+        st.rerun()
+    
+    # Use the query directly from the text area
     if execute_btn and nl_query:
-        with st.spinner("🤖 AI is thinking..."):
+        # Create a container for all results
+        results_container = st.container()
+        
+        with results_container:
+            # Step 1: Parsing & Schema Loading
+            step_placeholder = st.empty()
+            progress_placeholder = st.empty()
+            
+            with step_placeholder.container():
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown("**⏳ Step 1/4:** Loading schema...")
+                with col2:
+                    st.markdown("25%")
+            
             try:
                 # Prepare schema based on selection
                 if st.session_state.current_schema == "all":
@@ -341,6 +459,7 @@ def display_query_interface():
                 else:  # selected
                     if not st.session_state.selected_tables:
                         st.error("❌ Please select at least one table")
+                        step_placeholder.empty()
                         return
                     # Create specialized snapshot
                     snapshot_file = st.session_state.sam.create_specialized_snapshot(
@@ -351,6 +470,14 @@ def display_query_interface():
                 
                 # Update reasoner schema
                 st.session_state.reasoner.update_schema(schema_text)
+                
+                # Step 2: Generating SQL
+                with step_placeholder.container():
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown("**⏳ Step 2/4:** Generating SQL with AI...")
+                    with col2:
+                        st.markdown("50%")
                 
                 # Create command payload
                 payload = CommandPayload(
@@ -363,18 +490,31 @@ def display_query_interface():
                 # Generate SQL
                 output = st.session_state.reasoner.generate(payload)
                 
+                # Step 3: Validation
+                with step_placeholder.container():
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        st.markdown("**⏳ Step 3/4:** Validating query...")
+                    with col2:
+                        st.markdown("75%")
+                
                 # Display generated SQL
                 st.markdown("### 📝 Generated SQL")
                 st.code(output.sql or "No SQL generated", language="sql")
                 
-                # Display metadata
+                # Display metadata with better styling
+                st.markdown("### ✅ Query Analysis")
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("Intent", output.intent.upper())
+                    intent_color = "🟢" if output.intent in ["select", "show"] else "🟡" if output.intent in ["insert", "update"] else "🔴"
+                    st.metric("Intent", f"{intent_color} {output.intent.upper()}")
                 with col2:
-                    st.metric("Confidence", f"{output.confidence:.0%}")
+                    conf_pct = output.confidence * 100
+                    conf_color = "🟢" if conf_pct >= 80 else "🟡" if conf_pct >= 60 else "🔴"
+                    st.metric("Confidence", f"{conf_color} {conf_pct:.0f}%")
                 with col3:
-                    st.metric("Safety", "✅ Safe" if output.safe_to_execute else "⚠️ Blocked")
+                    safety_icon = "✅ Safe" if output.safe_to_execute else "⚠️ Blocked"
+                    st.metric("Safety", safety_icon)
                 with col4:
                     st.metric("Dialect", output.dialect.upper())
                 
@@ -394,41 +534,56 @@ def display_query_interface():
                 
                 # Execute SQL if safe
                 if output.sql and output.safe_to_execute:
+                    # Step 4: Executing
+                    with step_placeholder.container():
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.markdown("**⏳ Step 4/4:** Executing query...")
+                        with col2:
+                            st.markdown("100%")
+                    
                     st.markdown("---")
                     st.markdown("### 🎯 Execution Results")
                     
                     # Determine if destructive
                     is_destructive = output.intent in ["insert", "update", "delete", "alter", "create_table", "drop"]
                     
-                    # Execute
-                    exec_result = st.session_state.executor.execute_query(
-                        output.sql,
-                        safe_to_execute=output.safe_to_execute,
-                        is_destructive=is_destructive,
-                        dry_run=dry_run
-                    )
+                    # Execute with spinner
+                    with st.spinner("⚙️ Running query on database..."):
+                        exec_result = st.session_state.executor.execute_query(
+                            output.sql,
+                            safe_to_execute=output.safe_to_execute,
+                            is_destructive=is_destructive,
+                            dry_run=dry_run
+                        )
                     
                     # Format and display results
                     formatted = st.session_state.executor.format_results_for_display(exec_result)
                     
+                    # Clear the progress steps
+                    step_placeholder.empty()
+                    
                     # ---------------------------------------------------------
-                    # NEW IMPROVED DISPLAY LOGIC
+                    # IMPROVED RESULT DISPLAY WITH STATUS
                     # ---------------------------------------------------------
                     
                     if formatted['success']:
-                        st.success(f"✅ {formatted['message']}")
+                        st.success(f"✅ **Query Executed Successfully!** {formatted['message']}")
                     else:
                         st.error(f"❌ Execution Failed")
                         st.error(f"Error Details: {formatted['error']}")
 
-                    # Stats Bar
+                    # Stats Bar with enhanced styling
+                    st.markdown("#### 📊 Query Statistics")
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Execution Time", formatted['execution_time'])
+                        st.metric("⏱️ Execution Time", formatted['execution_time'])
                     with col2:
-                        st.metric("Rows Affected/Returned", formatted['rows_affected'])
+                        rows_affected = formatted['rows_affected']
+                        st.metric("📈 Rows Affected/Returned", rows_affected)
                     with col3:
-                        st.metric("Status", formatted['status'].upper())
+                        status_display = "✅ Success" if formatted['success'] else "❌ Failed"
+                        st.metric("Status", status_display)
                     
                     # Show Data (Success Case)
                     if formatted['success']:
@@ -487,6 +642,13 @@ def display_query_interface():
                     else:
                         if formatted.get('warnings'):
                             st.warning(f"Warnings: {formatted['warnings']}")
+                else:
+                    # Query blocked or no SQL generated
+                    step_placeholder.empty()
+                    if not output.sql:
+                        st.warning("⚠️ No SQL was generated. Please try rephrasing your question.")
+                    else:
+                        st.warning("⚠️ This query is blocked for safety reasons.")
                 
                 # Add to history
                 st.session_state.query_history.append({
@@ -499,7 +661,9 @@ def display_query_interface():
                 })
                 
             except Exception as e:
-                st.error(f"❌ An error occurred: {str(e)}")
+                step_placeholder.empty()
+                st.error(f"❌ **An error occurred during query execution:**")
+                st.error(f"```\n{str(e)}\n```")
 
 
 def display_query_history():

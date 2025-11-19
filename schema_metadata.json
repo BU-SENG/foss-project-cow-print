@@ -1,13 +1,10 @@
 {
-  "database_name": "movies",
-  "database_type": "mysql",
-  "created_at": "2025-11-18T12:58:06.576685",
-  "last_updated": "2025-11-18T12:58:06.576685",
+  "database_name": "sqlite_db",
+  "database_type": "sqlite",
+  "created_at": "2025-11-20T00:44:54.465977",
+  "last_updated": "2025-11-20T00:44:54.465977",
   "version": 1,
-  "table_count": 2,
-  "schema_hash": "8aff3908a921689735663447a6521c50",
-  "tables": [
-    "movie",
-    "movie_cast"
-  ]
+  "table_count": 0,
+  "schema_hash": "a30a054a603e8b4a405987b2e729aab7",
+  "tables": []
 }

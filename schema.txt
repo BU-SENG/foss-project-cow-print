@@ -1,18 +1,1 @@
-Database: movies
-
-
-Table movie:
-- movie_id (int) NOT NULL  PRIMARY KEY
-- director (varchar(255)) NOT NULL
-- poster (varchar(255)) NOT NULL
-- release_year (int) NOT NULL
-- studio (varchar(255)) NOT NULL
-- title (varchar(200)) NOT NULL
-  Rows: 49274
-
-Table movie_cast:
-- movie_movie_id (int) NOT NULL
-- movie_cast (varchar(255)) NULL
-  Foreign Keys:
-    - movie_movie_id → movie.movie_id
-  Rows: 147819
+Database: sqlite_db
