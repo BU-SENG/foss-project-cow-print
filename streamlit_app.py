@@ -749,6 +749,13 @@ def main():
     # Sidebar
     sidebar_database_connection()
     display_statistics()
+
+    # Admin Console Access
+st.sidebar.markdown("---")
+st.sidebar.write("🔐 For administrators")
+if st.sidebar.button("Open Admin Console"):
+    st.switch_page("admin_console.py")
+
     
     # Main content
     if not st.session_state.connected:
