@@ -141,7 +141,7 @@ class SchemaAwarenessModule:
                 return False
 
             # Auto-generate initial schema.txt
-            print(f"\n[SAM] Scanning database '{target_db}' and generating schema.txt...")
+            print(f"\n[SAM] Scanning database and generating schema.txt...")
             success = self.generate_full_schema()
             
             if success:
