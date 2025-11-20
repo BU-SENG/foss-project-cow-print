@@ -285,6 +285,40 @@ def display_available_tables():
                     st.markdown(f"{icon} **{table}**")
 
 
+def display_data_visualization(df: pd.DataFrame):
+    """Display visualization options for numeric data."""
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    if len(numeric_cols) == 0:
+        return
+    
+    st.markdown("#### 📈 Data Visualization")
+    viz_col1, viz_col2 = st.columns(2)
+    
+    with viz_col1:
+        chart_type = st.selectbox(
+            "Chart Type",
+            ["Bar Chart", "Line Chart", "Scatter Plot", "Pie Chart"],
+            key="chart_type_selector"
+        )
+    
+    with viz_col2:
+        y_col = st.selectbox("Y-Axis", numeric_cols, key="y_axis_selector")
+    
+    if chart_type == "Bar Chart" and len(df.columns) >= 2:
+        fig = px.bar(df, x=df.columns[0], y=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+    elif chart_type == "Line Chart" and len(df.columns) >= 2:
+        fig = px.line(df, x=df.columns[0], y=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+    elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
+        x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
+        fig = px.scatter(df, x=x_col, y=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+    elif chart_type == "Pie Chart" and len(df.columns) >= 2:
+        fig = px.pie(df, names=df.columns[0], values=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+
+
 def display_execution_results(formatted: Dict, sql: str, intent: str):
     """
     Display query execution results with visualizations
@@ -310,64 +344,29 @@ def display_execution_results(formatted: Dict, sql: str, intent: str):
     with col3:
         st.metric("Status", formatted['status'].upper())
     
-    # Show Data (Success Case)
-    if formatted['success']:
-        if formatted['has_data'] and formatted['data']:
-            st.markdown("#### 📊 Query Output")
-            df = pd.DataFrame(formatted['data'])
-            st.dataframe(df, use_container_width=True, height=400)
-            
-            # Download button
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Results as CSV",
-                data=csv,
-                file_name=f"query_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-            
-            # Visualization
-            numeric_cols = df.select_dtypes(include=['number']).columns
-            if len(numeric_cols) > 0:
-                st.markdown("#### 📈 Data Visualization")
-                viz_col1, viz_col2 = st.columns(2)
-                
-                with viz_col1:
-                    chart_type = st.selectbox(
-                        "Chart Type",
-                        ["Bar Chart", "Line Chart", "Scatter Plot", "Pie Chart"],
-                        key="chart_type_selector"
-                    )
-                
-                with viz_col2:
-                    y_col = st.selectbox("Y-Axis", numeric_cols, key="y_axis_selector")
-                
-                # Generate chart
-                if chart_type == "Bar Chart" and len(df.columns) >= 2:
-                    fig = px.bar(df, x=df.columns[0], y=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-                elif chart_type == "Line Chart" and len(df.columns) >= 2:
-                    fig = px.line(df, x=df.columns[0], y=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-                elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
-                    x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
-                    fig = px.scatter(df, x=x_col, y=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-                elif chart_type == "Pie Chart" and len(df.columns) >= 2:
-                    fig = px.pie(df, names=df.columns[0], values=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-
-        elif formatted['columns']: 
-            # Query worked (SELECT/SHOW) but returned 0 rows
-            st.warning("⚠️ Query executed successfully, but returned 0 results (Empty Set).")
-        else:
-            # Query worked (INSERT/UPDATE) and has no return columns
-            st.info(f"ℹ️ Operation completed. {formatted['rows_affected']} rows were affected.")
-
-    # Failure Case
-    else:
+    if not formatted['success']:
         if formatted.get('warnings'):
             st.warning(f"Warnings: {formatted['warnings']}")
+        return
+    
+    if formatted['has_data'] and formatted['data']:
+        st.markdown("#### 📊 Query Output")
+        df = pd.DataFrame(formatted['data'])
+        st.dataframe(df, use_container_width=True, height=400)
+        
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Results as CSV",
+            data=csv,
+            file_name=f"query_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+        
+        display_data_visualization(df)
+    elif formatted['columns']:
+        st.warning("⚠️ Query executed successfully, but returned 0 results (Empty Set).")
+    else:
+        st.info(f"ℹ️ Operation completed. {formatted['rows_affected']} rows were affected.")
 
 
 def display_query_interface():
@@ -551,7 +550,7 @@ def display_query_interface():
             # Editable SQL text area
             edited_sql = st.text_area(
                 "You can manually edit the SQL or click 'Refine with AI' below",
-                value=output.sql if output.sql else "",
+                value=output.sql or "",
                 height=150,
                 key="sql_editor",
                 help="Edit the SQL directly or use the refinement box below"
