@@ -356,6 +356,7 @@ def display_query_interface():
             try:
                 st.session_state.executor.clear_history()
             except Exception:
+                # Ignore errors when clearing executor history; not critical to app flow
                 pass
 
     if gen and nl_query:
