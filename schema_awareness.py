@@ -30,7 +30,6 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 import hashlib
 
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -87,7 +86,7 @@ class SchemaAwarenessModule:
         self.connection = None
         self.db_type: Optional[DatabaseType] = None
         
-        print("Schema Awareness Module initialized.")
+        print("[SAM] Schema Awareness Module initialized.")
 
     def connect_database(self, db_type: str, **connection_params) -> bool:
         """
@@ -102,8 +101,7 @@ class SchemaAwarenessModule:
         Returns:
             bool: True if connection and schema generation successful
         """
-        # 1. Extract non-sensitive info to separate variables for safe logging
-        # This breaks the link to the sensitive 'connection_params' dict for the static analyzer
+        # Extract non-sensitive info for safe logging
         target_db = connection_params.get('database', 'unknown')
         
         try:
@@ -119,7 +117,7 @@ class SchemaAwarenessModule:
                     port=int(connection_params.get('port', 3306)),
                     cursorclass=pymysql.cursors.DictCursor
                 )
-                print("✓ Connected to MySQL database.")
+                print("[SAM] ✓ Connected to MySQL database.")
                 
             elif db_type_lower in {"postgres", "postgresql"}:
                 self.db_type = DatabaseType.POSTGRESQL
@@ -130,39 +128,52 @@ class SchemaAwarenessModule:
                     database=connection_params.get('database'),
                     port=int(connection_params.get('port', 5432))
                 )
-                print("✓ Connected to PostgreSQL database.")
+                print("[SAM] ✓ Connected to PostgreSQL database.")
                 
             elif db_type_lower == "sqlite":
                 self.db_type = DatabaseType.SQLITE
                 self.connection = sqlite3.connect(connection_params['database'])
                 self.connection.row_factory = sqlite3.Row
-                print("✓ Connected to SQLite database.")
+                print("[SAM] ✓ Connected to SQLite database.")
                 
             else:
-                print(f"✗ Unsupported database type: {db_type}")
+                print(f"[SAM] ✗ Unsupported database type: {db_type}")
                 return False
 
             # Auto-generate initial schema.txt
-            print("\n[SAM] Scanning database and generating schema.txt...")
-            self.generate_full_schema()
-            print("[SAM] ✓ schema.txt generated successfully!\n")
+            print(f"\n[SAM] Scanning database and generating schema.txt...")
+            success = self.generate_full_schema()
             
-            return True
+            if success:
+                print("[SAM] ✓ schema.txt generated successfully!\n")
+            else:
+                print("[SAM] ✗ Failed to generate schema.txt\n")
+            
+            return success
             
         except Exception as e:
-            # 2. Sanitize the exception message to ensure no passwords are leaked
+            # Sanitize error message to ensure no passwords are leaked
             error_msg = str(e)
             pwd = connection_params.get('password')
             
-            # If the password exists and is in the error message, redact it
+            # If password exists and is in the error message, redact it
             if pwd and isinstance(pwd, str) and len(pwd) > 0:
                 error_msg = error_msg.replace(pwd, "******")
             
-            print(f"✗ Database connection failed: {error_msg}")
+            print(f"[SAM] ✗ Database connection failed: {error_msg}")
             return False
 
     def _get_tables(self) -> List[str]:
-        """Get list of all tables in the database"""
+        """
+        Get list of all tables in the database (INTERNAL METHOD)
+        
+        Returns:
+            List[str]: List of table names
+        """
+        if not self.connection:
+            print("[SAM] Warning: No database connection.")
+            return []
+        
         cursor = self.connection.cursor()
         
         try:
@@ -183,11 +194,42 @@ class SchemaAwarenessModule:
                     WHERE type='table' AND name NOT LIKE 'sqlite_%'
                 """)
                 tables = [row[0] for row in cursor.fetchall()]
+            else:
+                tables = []
                 
             return tables
             
+        except Exception as e:
+            print(f"[SAM] Error getting tables: {e}")
+            return []
+            
         finally:
             cursor.close()
+
+    def get_tables(self) -> List[str]:
+        """
+        PUBLIC method to get list of all tables in the database.
+        This is the method that should be called by external modules.
+        
+        Returns:
+            List[str]: List of table names, or empty list if not connected
+            
+        Example:
+            >>> sam = SchemaAwarenessModule()
+            >>> sam.connect_database("sqlite", database="sample.db")
+            >>> tables = sam.get_tables()
+            >>> print(tables)
+            ['students', 'classes']
+        """
+        if not self.connection:
+            print("[SAM] Warning: No database connection. Call connect_database() first.")
+            return []
+        
+        try:
+            return self._get_tables()
+        except Exception as e:
+            print(f"[SAM] Error getting tables: {e}")
+            return []
 
     def _get_table_schema(self, table_name: str) -> TableSchema:
         """Get detailed schema information for a specific table"""
@@ -218,7 +260,8 @@ class SchemaAwarenessModule:
                 cursor.execute(f"""
                     SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
                     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-                    WHERE TABLE_NAME = '{table_name}' 
+                    WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = '{table_name}' 
                     AND REFERENCED_TABLE_NAME IS NOT NULL
                 """)
                 foreign_keys.extend([{
@@ -233,6 +276,7 @@ class SchemaAwarenessModule:
                     SELECT column_name, data_type, is_nullable, column_default
                     FROM information_schema.columns
                     WHERE table_name = '{table_name}'
+                    ORDER BY ordinal_position
                 """)
                 rows = cursor.fetchall()
                 columns.extend([{
@@ -251,29 +295,66 @@ class SchemaAwarenessModule:
                 """)
                 primary_keys = [row[0] for row in cursor.fetchall()]
                 
+                # Get foreign keys
+                cursor.execute(f"""
+                    SELECT
+                        kcu.column_name,
+                        ccu.table_name AS foreign_table_name,
+                        ccu.column_name AS foreign_column_name
+                    FROM information_schema.table_constraints AS tc
+                    JOIN information_schema.key_column_usage AS kcu
+                        ON tc.constraint_name = kcu.constraint_name
+                        AND tc.table_schema = kcu.table_schema
+                    JOIN information_schema.constraint_column_usage AS ccu
+                        ON ccu.constraint_name = tc.constraint_name
+                        AND ccu.table_schema = tc.table_schema
+                    WHERE tc.constraint_type = 'FOREIGN KEY'
+                    AND tc.table_name = '{table_name}'
+                """)
+                foreign_keys.extend([{
+                    'column': row[0],
+                    'references_table': row[1],
+                    'references_column': row[2]
+                } for row in cursor.fetchall()])
+                
             elif self.db_type == DatabaseType.SQLITE:
                 # Get columns
                 cursor.execute(f"PRAGMA table_info(`{table_name}`)")
-                columns.extend([{
-                    'name': row[1],
-                    'type': row[2],
-                    'nullable': row[3] == 0,
-                    'default': row[4],
-                    'primary_key': row[5] == 1
-                } for row in cursor.fetchall()])
-                primary_keys.extend([row[1] for row in cursor.fetchall() if row[5] == 1])
+                rows = cursor.fetchall()
+                for row in rows:
+                    columns.append({
+                        'name': row[1],
+                        'type': row[2],
+                        'nullable': row[3] == 0,
+                        'default': row[4],
+                        'primary_key': row[5] == 1
+                    })
+                    if row[5] == 1:
+                        primary_keys.append(row[1])
                 
                 # Get foreign keys
                 cursor.execute(f"PRAGMA foreign_key_list(`{table_name}`)")
+                rows = cursor.fetchall()
                 foreign_keys.extend([{
                     'column': row[3],
                     'references_table': row[2],
                     'references_column': row[4]
-                } for row in cursor.fetchall()])
+                } for row in rows])
             
             # Get row count
-            cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
-            row_count = cursor.fetchone()[0] if self.db_type == DatabaseType.SQLITE else list(cursor.fetchone().values())[0]
+            try:
+                cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+                result = cursor.fetchone()
+                
+                if self.db_type == DatabaseType.SQLITE:
+                    row_count = result[0]
+                elif self.db_type == DatabaseType.MYSQL:
+                    row_count = list(result.values())[0]
+                else:  # PostgreSQL
+                    row_count = result[0]
+            except Exception as e:
+                print(f"[SAM] Warning: Could not get row count for {table_name}: {e}")
+                row_count = None
             
             return TableSchema(
                 name=table_name,
@@ -282,6 +363,18 @@ class SchemaAwarenessModule:
                 foreign_keys=foreign_keys,
                 indexes=indexes,
                 row_count=row_count
+            )
+            
+        except Exception as e:
+            print(f"[SAM] Error getting schema for table {table_name}: {e}")
+            # Return empty schema on error
+            return TableSchema(
+                name=table_name,
+                columns=[],
+                primary_keys=[],
+                foreign_keys=[],
+                indexes=[],
+                row_count=None
             )
             
         finally:
@@ -306,7 +399,10 @@ class SchemaAwarenessModule:
             # Foreign Keys
             if table_schema.foreign_keys:
                 lines.append("  Foreign Keys:")
-                lines.extend([f"    - {fk['column']} → {fk['references_table']}.{fk['references_column']}" for fk in table_schema.foreign_keys])
+                lines.extend([
+                    f"    - {fk['column']} → {fk['references_table']}.{fk['references_column']}" 
+                    for fk in table_schema.foreign_keys
+                ])
             
             # Row count
             if table_schema.row_count is not None:
@@ -322,12 +418,17 @@ class SchemaAwarenessModule:
             bool: True if successful
         """
         if not self.connection:
-            print("✗ No database connection. Call connect_database() first.")
+            print("[SAM] ✗ No database connection. Call connect_database() first.")
             return False
         
         try:
             # Get all tables
             tables = self._get_tables()
+            
+            if not tables:
+                print("[SAM] Warning: No tables found in database")
+                return False
+            
             print(f"[SAM] Found {len(tables)} tables: {', '.join(tables)}")
             
             # Get schema for each table
@@ -371,6 +472,8 @@ class SchemaAwarenessModule:
             
         except Exception as e:
             print(f"[SAM] ✗ Schema generation failed: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def _get_database_name(self) -> str:
@@ -379,12 +482,17 @@ class SchemaAwarenessModule:
         try:
             if self.db_type == DatabaseType.MYSQL:
                 cursor.execute("SELECT DATABASE()")
-                return list(cursor.fetchone().values())[0]
+                result = cursor.fetchone()
+                return list(result.values())[0] if result else "unknown"
             elif self.db_type == DatabaseType.POSTGRESQL:
                 cursor.execute("SELECT current_database()")
-                return cursor.fetchone()[0]
+                result = cursor.fetchone()
+                return result[0] if result else "unknown"
             elif self.db_type == DatabaseType.SQLITE:
                 return "sqlite_db"
+            return "unknown"
+        except Exception as e:
+            print(f"[SAM] Warning: Could not get database name: {e}")
             return "unknown"
         finally:
             cursor.close()
@@ -400,6 +508,10 @@ class SchemaAwarenessModule:
         Returns:
             str: Path to the specialized snapshot file, or None if failed
         """
+        if not self.connection:
+            print("[SAM] ✗ No database connection")
+            return None
+        
         if not snapshot_id:
             snapshot_id = f"specialized_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
@@ -407,9 +519,11 @@ class SchemaAwarenessModule:
         
         try:
             # Get schema for specified tables
+            available_tables = self._get_tables()
             tables_data = {}
+            
             for table in table_names:
-                if table in self._get_tables():
+                if table in available_tables:
                     tables_data[table] = self._get_table_schema(table)
                 else:
                     print(f"[SAM] Warning: Table '{table}' not found in database")
@@ -430,6 +544,8 @@ class SchemaAwarenessModule:
             
         except Exception as e:
             print(f"[SAM] ✗ Failed to create specialized snapshot: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     def delete_specialized_snapshot(self, snapshot_id: str) -> bool:
@@ -504,8 +620,11 @@ class SchemaAwarenessModule:
     def close(self):
         """Close database connection and cleanup"""
         if self.connection:
-            self.connection.close()
-            print("[SAM] Database connection closed.")
+            try:
+                self.connection.close()
+                print("[SAM] Database connection closed.")
+            except Exception as e:
+                print(f"[SAM] Error closing connection: {e}")
         
         # Cleanup specialized snapshots
         for snapshot_id in list(self.specialized_snapshots.keys()):
@@ -547,9 +666,16 @@ if __name__ == "__main__":
         print(f"  Schema file: {sam.schema_file}")
         print(f"  Metadata file: {sam.metadata_file}")
         
-        # Demo: Create specialized snapshot
-        if (tables := sam._get_tables()):
+        # Demo: Test public get_tables() method
+        tables = sam.get_tables()
+        if tables:
+            print(f"\n✓ Public get_tables() method works!")
+            print(f"  Found {len(tables)} tables: {', '.join(tables)}")
+            
+            # Demo: Create specialized snapshot
             print("\nDemo: Creating specialized snapshot for first table...")
             sam.create_specialized_snapshot([tables[0]])
+        else:
+            print("\n✗ No tables found")
     
     sam.close()
