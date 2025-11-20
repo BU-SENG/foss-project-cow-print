@@ -82,16 +82,23 @@ from typing import Optional, Dict, Any, List
 # Add current directory to path to import local modules
 sys.path.append(os.path.dirname(__file__))
 
-# Load environment variables FIRST
+import os
 from dotenv import load_dotenv
-load_dotenv()  # This loads the .env file
 
-# Debug: Print API key status
+# Load environment variables from .env
+load_dotenv()
+
+# Get the API key from environment
 api_key = os.getenv("GEMINI_API_KEY")
-print(f"API Key loaded: {api_key is not None}")
+
+# Safe debug check without exposing sensitive info
 if api_key:
-    print(f"API Key length: {len(api_key)}")
-    print(f"API Key starts with: {api_key[:10]}...")
+    print("Environment configuration loaded successfully ✅")
+else:
+    print("AI service not configured")
+    MODULES_AVAILABLE = True
+    GEMINI_API_VALID = False
+
 
 # Import our modules
 try:
@@ -99,7 +106,7 @@ try:
     from sqlm import GeminiReasoner, CommandPayload
     from db_executor import DatabaseExecutor, ExecutionResult, ExecutionStatus
     
-    # Test Gemini API immediately
+    # Test Gemini API securely
     import google.generativeai as genai
     
     if api_key:
@@ -108,20 +115,20 @@ try:
             # Test the API
             models = list(genai.list_models())
             gemini_models = [m for m in models if 'gemini' in m.name]
-            print(f"✅ Gemini API connected successfully! Available models: {len(gemini_models)}")
+            print(f"✅ AI service connected successfully! Available models: {len(gemini_models)}")
             MODULES_AVAILABLE = True
             GEMINI_API_VALID = True
         except Exception as e:
-            print(f"❌ Gemini API failed: {e}")
+            print(f"❌ AI service connection failed: Check API key configuration")
             MODULES_AVAILABLE = True
             GEMINI_API_VALID = False
     else:
-        print("❌ No API key found")
+        print("❌ AI service not configured")
         MODULES_AVAILABLE = True
         GEMINI_API_VALID = False
         
 except ImportError as e:
-    print(f"❌ Module import error: {e}")
+    print(f"❌ Module import error")
     MODULES_AVAILABLE = False
     GEMINI_API_VALID = False
 
@@ -632,7 +639,7 @@ class FileDatabaseManager:
                     except Exception as e:
                         # Skip statements that can't be executed (like SELECT in empty DB)
                         if "no such table" not in str(e).lower():
-                            print(f"Info: Could not execute {statement[:50]}...: {e}")
+                            print(f"Info: Could not execute statement: Schema mismatch")
             
             conn.commit()
             
@@ -656,7 +663,7 @@ class FileDatabaseManager:
             return db_name
             
         except Exception as e:
-            print(f"Error creating temp database: {e}")
+            print(f"Error creating temp database: Configuration error")
             # Clean up if creation failed
             if os.path.exists(temp_db_path):
                 try:
@@ -702,7 +709,7 @@ class FileDatabaseManager:
                 if os.path.exists(db_info['path']):
                     os.remove(db_info['path'])
             except Exception as e:
-                print(f"Warning: Could not clean up temp database {db_name}: {e}")
+                print(f"Warning: Could not clean up temp database")
             
             del self.temp_databases[db_name]
             
@@ -782,7 +789,7 @@ def execute_uploaded_sql_file(sql_file, db_type, **conn_params):
                         if st.session_state.reasoner and hasattr(st.session_state.reasoner, 'update_schema'):
                             st.session_state.reasoner.update_schema(schema_text)
                     except Exception as e:
-                        print(f"Warning: Could not update reasoner schema: {e}")
+                        print(f"Warning: Could not update reasoner schema")
                 
                 # Auto-switch to query tab
                 st.session_state.active_tab = 'query'
@@ -793,7 +800,7 @@ def execute_uploaded_sql_file(sql_file, db_type, **conn_params):
             st.sidebar.error("Failed to create database from SQL file")
                 
     except Exception as e:
-        st.sidebar.error(f"Failed to process SQL file: {str(e)}")
+        st.sidebar.error(f"Failed to process SQL file")
 
 def connect_to_database(db_type: str, **conn_params):
     """Database connection handler with proper thread handling"""
@@ -810,7 +817,7 @@ def connect_to_database(db_type: str, **conn_params):
                 db_file = conn_params['database']
                 # Ensure the connection is thread-safe
                 if not os.path.exists(db_file):
-                    st.sidebar.error(f"Database file not found: {db_file}")
+                    st.sidebar.error(f"Database file not found")
                     return False
             
             if sam.connect_database(db_type, **conn_params):
@@ -833,7 +840,7 @@ def connect_to_database(db_type: str, **conn_params):
                     return True
                     
                 except Exception as e:
-                    st.sidebar.error(f"Error initializing AI components: {str(e)}")
+                    st.sidebar.error(f"Error initializing AI components")
                     # Still consider connected for basic operations
                     st.session_state.connected = True
                     st.sidebar.success("✅ Database connected (AI features limited)")
@@ -843,7 +850,7 @@ def connect_to_database(db_type: str, **conn_params):
                 return False
                 
         except Exception as e:
-            st.sidebar.error(f"❌ Connection error: {str(e)}")
+            st.sidebar.error(f"❌ Connection error")
             return False
                  
 def disconnect_database():
@@ -861,7 +868,7 @@ def disconnect_database():
                 try:
                     st.session_state.sam.close()
                 except Exception as e:
-                    print(f"Warning: Error closing SAM: {e}")
+                    print(f"Warning: Error closing SAM")
             
             # Reset session state
             st.session_state.connected = False
@@ -879,7 +886,7 @@ def disconnect_database():
             st.sidebar.info("Not connected to any database")
             
     except Exception as e:
-        st.sidebar.error(f"Error during disconnection: {str(e)}")
+        st.sidebar.error(f"Error during disconnection")
         
 def execute_sql_file(sql_content: str, execute_all: bool, show_results: bool, stop_on_error: bool):
     """Execute SQL content from imported file"""
@@ -951,7 +958,7 @@ def execute_sql_file(sql_content: str, execute_all: bool, show_results: bool, st
         display_sql_import_results(results, show_results)
         
     except Exception as e:
-        st.error(f"Failed to execute SQL file: {str(e)}")
+        st.error(f"Failed to execute SQL file")
 
 def display_sql_import_results(results: List[Dict], show_results: bool):
     """Display results of SQL file execution"""
@@ -996,35 +1003,27 @@ def create_mock_reasoner(schema_text: str):
         def __init__(self, schema_snapshot):
             self.schema_snapshot = schema_text
             self.table_names = self.get_actual_tables()
-            print(f"MockReasoner: Found tables - {self.table_names}")
             
         def get_actual_tables(self):
             """Get the actual table names from the connected database"""
             tables = []
             try:
                 if st.session_state.connected and st.session_state.sam:
-                    print("Attempting to get tables from database...")
-                    
                     # METHOD 1: Try schema awareness module methods
                     if hasattr(st.session_state.sam, 'get_tables'):
                         tables = st.session_state.sam.get_tables()
-                        print(f"Method 1 (get_tables): {tables}")
                     elif hasattr(st.session_state.sam, 'get_table_names'):
                         tables = st.session_state.sam.get_table_names()
-                        print(f"Method 2 (get_table_names): {tables}")
                     elif hasattr(st.session_state.sam, 'list_tables'):
                         tables = st.session_state.sam.list_tables()
-                        print(f"Method 3 (list_tables): {tables}")
                     
                     # METHOD 2: If above methods failed, try direct SQLite query
                     if not tables and st.session_state.last_connection_type == 'sqlite':
-                        print("Trying direct SQLite table detection...")
                         try:
                             import sqlite3
                             # Get the database file path
                             if hasattr(st.session_state.sam, 'database_file'):
                                 db_path = st.session_state.sam.database_file
-                                print(f"Database path: {db_path}")
                                 
                                 # Direct SQL query to get tables
                                 conn = sqlite3.connect(db_path, check_same_thread=False)
@@ -1032,24 +1031,19 @@ def create_mock_reasoner(schema_text: str):
                                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
                                 tables = [row[0] for row in cursor.fetchall()]
                                 conn.close()
-                                print(f"Direct SQLite query found: {tables}")
                         except Exception as e:
-                            print(f"Direct SQLite query failed: {e}")
+                            pass
                     
                     # METHOD 3: Try to get from metadata
                     if not tables and hasattr(st.session_state.sam, 'current_metadata'):
                         metadata = st.session_state.sam.current_metadata
                         if hasattr(metadata, 'tables'):
                             tables = metadata.tables
-                            print(f"Method 4 (metadata.tables): {tables}")
                         elif hasattr(metadata, 'table_names'):
                             tables = metadata.table_names
-                            print(f"Method 5 (metadata.table_names): {tables}")
-                    
-                    print(f"Final table list: {tables}")
                     
             except Exception as e:
-                print(f"Error getting tables: {e}")
+                pass
                 
             return tables
             
@@ -1060,7 +1054,6 @@ def create_mock_reasoner(schema_text: str):
             
         def generate(self, payload):
             nl_query = payload.raw_nl.lower()
-            print(f"Query: '{nl_query}', Available tables: {self.table_names}")
             
             # If we have actual tables, use them
             if self.table_names:
@@ -1154,7 +1147,7 @@ def debug_table_info():
             elif hasattr(st.session_state.sam, 'get_table_names'):
                 tables = st.session_state.sam.get_table_names()
         except Exception as e:
-            st.sidebar.write(f"Error getting tables: {e}")
+            st.sidebar.write(f"Error getting tables")
         
         st.sidebar.write(f"Database tables: {tables}")
         
@@ -1179,7 +1172,7 @@ def debug_database_status():
                     st.sidebar.write(f"Schema size: {len(content)} chars")
                     st.sidebar.write(f"Schema preview: {content[:200]}...")
                 except Exception as e:
-                    st.sidebar.write(f"Schema read error: {e}")
+                    st.sidebar.write(f"Schema read error")
         
         # Check tables
         try:
@@ -1191,7 +1184,7 @@ def debug_database_status():
             
             st.sidebar.write(f"Database tables: {tables}")
         except Exception as e:
-            st.sidebar.write(f"Table check error: {e}")
+            st.sidebar.write(f"Table check error")
         
         # Check reasoner tables
         if st.session_state.reasoner and hasattr(st.session_state.reasoner, 'table_names'):
@@ -1214,7 +1207,7 @@ def refresh_schema():
                 
             schema_file_path = st.session_state.sam.schema_file
             if not os.path.exists(schema_file_path):
-                st.sidebar.error(f"Schema file not found at: {schema_file_path}")
+                st.sidebar.error(f"Schema file not found")
                 return
                 
             # Read schema to verify it's valid
@@ -1230,7 +1223,7 @@ def refresh_schema():
                 st.session_state.reasoner.update_schema(schema_content)
                 
         except Exception as e:
-            st.sidebar.error(f"Schema refresh failed: {str(e)}")
+            st.sidebar.error(f"Schema refresh failed")
         
         # Show available methods
         methods = [m for m in dir(st.session_state.sam) if not m.startswith('_') and callable(getattr(st.session_state.sam, m))]
@@ -1263,7 +1256,7 @@ def display_schema_explorer():
             elif hasattr(metadata, 'table_names'):
                 tables = metadata.table_names
     except Exception as e:
-        st.error(f"Error retrieving tables: {str(e)}")
+        st.error(f"Error retrieving tables")
         tables = []
     
     # If no tables found
@@ -1326,7 +1319,7 @@ def add_specialized_snapshot_support():
             return specialized_file
             
         except Exception as e:
-            print(f"Mock specialized snapshot failed: {e}")
+            print(f"Mock specialized snapshot failed")
             return None
     
     # Add the method to the instance
@@ -1363,7 +1356,7 @@ def debug_schema_info():
                     # Show first 200 chars to see if schema is populated
                     st.sidebar.write(f"**Schema preview:** {content[:200]}...")
                 except Exception as e:
-                    st.sidebar.write(f"**Schema read error:** {e}")
+                    st.sidebar.write(f"**Schema read error:** File access issue")
             else:
                 st.sidebar.write("**Schema file:** Not found or inaccessible")
         
@@ -1569,7 +1562,7 @@ def create_file_database(sql_content: str, db_name: str):
                 st.error("Failed to create database from SQL file")
                 
     except Exception as e:
-        st.error(f"Error creating database: {str(e)}")
+        st.error(f"Error creating database")
 
 def preview_sql_data(sql_content: str):
     """Preview what tables and data would be created"""
@@ -1603,7 +1596,7 @@ def preview_sql_data(sql_content: str):
                     pass
                     
     except Exception as e:
-        st.error(f"Error previewing data: {str(e)}")
+        st.error(f"Error previewing data")
 
 def extract_table_name(create_statement: str) -> str:
     """Extract table name from CREATE TABLE statement"""
@@ -1691,7 +1684,7 @@ def execute_sql_statements(sql_content: str, execute_mode: str, selected_index: 
         st.rerun()
         
     except Exception as e:
-        st.error(f"Failed to execute SQL: {str(e)}")
+        st.error(f"Failed to execute SQL")
 
 def save_sql_to_file(sql_content: str):
     """Save SQL content to a file"""
@@ -1762,7 +1755,7 @@ def execute_nl_query(nl_query: str, dialect: str, allow_destructive: bool, dry_r
         
     except Exception as e:
         thinking_placeholder.empty()
-        st.error(f"Query execution failed: {str(e)}")
+        st.error(f"Query execution failed")
     finally:
         st.session_state.ai_thinking = False
 
@@ -1781,7 +1774,7 @@ def prepare_schema_context() -> str:
             
             schema_file_path = st.session_state.sam.schema_file
             if not os.path.exists(schema_file_path):
-                st.error(f"Schema file not found at: {schema_file_path}")
+                st.error(f"Schema file not found")
                 return ""
                 
             with open(schema_file_path, 'r') as f:
@@ -1823,7 +1816,7 @@ def prepare_schema_context() -> str:
                         return ""
                 
                 if not os.path.exists(snapshot_file):
-                    st.warning(f"Specialized snapshot file not found: {snapshot_file}. Using full schema.")
+                    st.warning(f"Specialized snapshot file not found. Using full schema.")
                     # Fallback to full schema
                     if hasattr(st.session_state.sam, 'schema_file') and st.session_state.sam.schema_file:
                         with open(st.session_state.sam.schema_file, 'r') as f:
@@ -1843,7 +1836,7 @@ def prepare_schema_context() -> str:
                     return content
                     
             except Exception as snapshot_error:
-                st.warning(f"Specialized snapshot failed: {snapshot_error}. Using full schema.")
+                st.warning(f"Specialized snapshot failed. Using full schema.")
                 # Fallback to full schema
                 if hasattr(st.session_state.sam, 'schema_file') and st.session_state.sam.schema_file:
                     with open(st.session_state.sam.schema_file, 'r') as f:
@@ -1853,7 +1846,7 @@ def prepare_schema_context() -> str:
                     return ""
                 
     except Exception as e:
-        st.error(f"Schema preparation failed: {str(e)}")
+        st.error(f"Schema preparation failed")
         return ""
 
 def initialize_reasoner(schema_text: str):
@@ -1877,7 +1870,7 @@ def initialize_reasoner(schema_text: str):
             return reasoner
             
     except Exception as e:
-        st.sidebar.error(f"Failed to initialize AI reasoner: {e}")
+        st.sidebar.error(f"Failed to initialize AI reasoner")
         reasoner = create_mock_reasoner(schema_text)
         if hasattr(reasoner, 'get_actual_tables'):
             reasoner.table_names = reasoner.get_actual_tables()
@@ -2119,7 +2112,7 @@ def execute_sql_query(output, nl_query: str):
             display_execution_results(formatted, output, nl_query)
             
         except Exception as e:
-            st.error(f"Query execution failed: {str(e)}")
+            st.error(f"Query execution failed")
 
 def display_execution_results(formatted: Dict, output, nl_query: str):
     """Display enhanced execution results"""
@@ -2230,7 +2223,7 @@ def display_data_visualizations(df: pd.DataFrame):
         fig.update_layout(template="plotly_white")
         st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
-        st.error(f"Chart generation failed: {str(e)}")
+        st.error(f"Chart generation failed")
 
 def display_data_statistics(df: pd.DataFrame):
     """Display enhanced data statistics"""
@@ -2339,7 +2332,7 @@ def display_export_options(df: pd.DataFrame):
                 st.session_state.clipboard = df.to_markdown()
                 st.success("Markdown copied to clipboard!")
             except Exception as e:
-                st.error(f"Could not copy to clipboard: {e}")
+                st.error(f"Could not copy to clipboard")
     
     with copy_col2:
         if st.button("Copy as JSON", use_container_width=True):
@@ -2347,7 +2340,7 @@ def display_export_options(df: pd.DataFrame):
                 st.session_state.clipboard = json_str
                 st.success("JSON copied to clipboard!")
             except Exception as e:
-                st.error(f"Could not copy to clipboard: {e}")
+                st.error(f"Could not copy to clipboard")
 
 def update_execution_stats(formatted: Dict, output):
     """Update execution statistics"""
@@ -2657,7 +2650,7 @@ def main():
             display_welcome_screen()
             
     except Exception as e:
-        st.error(f"Application error: {str(e)}")
+        st.error(f"Application error")
         # Don't do aggressive cleanup in main function as it can cause issues
               
 if __name__ == "__main__":
