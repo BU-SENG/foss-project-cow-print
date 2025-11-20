@@ -15,7 +15,7 @@ This refactor assumes the existing core modules are available:
 Save this file as streamlit_app.py and run with: streamlit run streamlit_app.py
 """
 
-from typing import Dict, Optional, List
+from typing import Dict, List
 import streamlit as st
 import pandas as pd
 from datetime import datetime
