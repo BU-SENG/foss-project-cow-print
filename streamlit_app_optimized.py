@@ -22,7 +22,6 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import asyncio
-import json
 
 # Import project modules (assumed present)
 from schema_awareness import SchemaAwarenessModule
