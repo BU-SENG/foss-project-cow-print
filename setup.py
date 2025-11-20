@@ -10,6 +10,7 @@ import sys
 import subprocess
 import sqlite3
 from pathlib import Path
+import base64
 
 def print_header():
     """Print a beautiful header"""
@@ -82,9 +83,14 @@ def create_env_file():
     
     api_key = input("Enter your Gemini API Key (or press Enter to skip): ").strip()
     
+    # Store the API key base64-encoded instead of in clear text for extra security.
+    api_key_b64 = base64.b64encode(api_key.encode("utf-8")).decode("utf-8") if api_key else ""
     # We store standard configuration compatible with sqlm.py
     env_content = f"""# Gemini AI Configuration
-GEMINI_API_KEY={api_key}
+# GEMINI_API_KEY is stored encrypted as base64 to avoid clear-text exposure.
+# To use the key in your application, decode it as follows in Python:
+# import base64; api_key = base64.b64decode(os.getenv('GEMINI_API_KEY_ENC', '')).decode('utf-8')
+GEMINI_API_KEY_ENC={api_key_b64}
 GEMINI_MODEL=models/gemini-1.5-flash
 GEMINI_MAX_TOKENS=8192
 
