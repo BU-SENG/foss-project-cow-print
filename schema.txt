@@ -1,18 +1,62 @@
-Database: movies
+Database: sqlite_db
 
 
-Table movie:
-- movie_id (int) NOT NULL  PRIMARY KEY
-- director (varchar(255)) NOT NULL
-- poster (varchar(255)) NOT NULL
-- release_year (int) NOT NULL
-- studio (varchar(255)) NOT NULL
-- title (varchar(200)) NOT NULL
-  Rows: 49274
+Table users:
+- id (INTEGER) NULL
+- username (VARCHAR(50)) NOT NULL
+- email (VARCHAR(100)) NOT NULL
+- first_name (VARCHAR(50)) NULL
+- last_name (VARCHAR(50)) NULL
+- created_at (DATETIME) NULL DEFAULT CURRENT_TIMESTAMP
+- is_active (BOOLEAN) NULL DEFAULT 1
+  Rows: 4
 
-Table movie_cast:
-- movie_movie_id (int) NOT NULL
-- movie_cast (varchar(255)) NULL
+Table products:
+- id (INTEGER) NULL
+- name (VARCHAR(100)) NOT NULL
+- description (TEXT) NULL
+- price (DECIMAL(10,2)) NOT NULL
+- category_id (INTEGER) NULL
+- stock_quantity (INTEGER) NULL DEFAULT 0
+- created_at (DATETIME) NULL DEFAULT CURRENT_TIMESTAMP
+  Rows: 5
+
+Table categories:
+- id (INTEGER) NULL
+- name (VARCHAR(50)) NOT NULL
+- description (TEXT) NULL
+  Rows: 4
+
+Table orders:
+- id (INTEGER) NULL
+- user_id (INTEGER) NOT NULL
+- order_date (DATETIME) NULL DEFAULT CURRENT_TIMESTAMP
+- total_amount (DECIMAL(10,2)) NOT NULL
+- status (VARCHAR(20)) NULL DEFAULT 'pending'
+- shipping_address (TEXT) NULL
   Foreign Keys:
-    - movie_movie_id → movie.movie_id
-  Rows: 147819
+    - user_id → users.id
+  Rows: 3
+
+Table order_items:
+- id (INTEGER) NULL
+- order_id (INTEGER) NOT NULL
+- product_id (INTEGER) NOT NULL
+- quantity (INTEGER) NOT NULL
+- unit_price (DECIMAL(10,2)) NOT NULL
+  Foreign Keys:
+    - product_id → products.id
+    - order_id → orders.id
+  Rows: 5
+
+Table customer_reviews:
+- id (INTEGER) NULL
+- user_id (INTEGER) NOT NULL
+- product_id (INTEGER) NOT NULL
+- rating (INTEGER) NULL
+- review_text (TEXT) NULL
+- created_at (DATETIME) NULL DEFAULT CURRENT_TIMESTAMP
+  Foreign Keys:
+    - product_id → products.id
+    - user_id → users.id
+  Rows: 3
