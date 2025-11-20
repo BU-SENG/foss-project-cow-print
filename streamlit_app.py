@@ -345,17 +345,17 @@ def display_execution_results(formatted: Dict, sql: str, intent: str):
                 # Generate chart
                 if chart_type == "Bar Chart" and len(df.columns) >= 2:
                     fig = px.bar(df, x=df.columns[0], y=y_col)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 elif chart_type == "Line Chart" and len(df.columns) >= 2:
                     fig = px.line(df, x=df.columns[0], y=y_col)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
                     x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
                     fig = px.scatter(df, x=x_col, y=y_col)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
                 elif chart_type == "Pie Chart" and len(df.columns) >= 2:
                     fig = px.pie(df, names=df.columns[0], values=y_col)
-                    st.plotly_chart(fig, width="stretch")
+                    st.plotly_chart(fig, use_container_width=True)
 
         elif formatted['columns']: 
             # Query worked (SELECT/SHOW) but returned 0 rows
