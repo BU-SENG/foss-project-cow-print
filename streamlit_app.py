@@ -740,7 +740,7 @@ def display_statistics():
                 height=200,
                 margin=dict(l=0, r=0, t=0, b=0)
             )
-            st.sidebar.plotly_chart(fig, width="stretch")
+            st.sidebar.plotly_chart(fig, use_container_width=True)
 
 
 def main():
