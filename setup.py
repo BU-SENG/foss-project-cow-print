@@ -29,8 +29,9 @@ def check_python_version():
 
 def create_requirements_file():
     """Create requirements.txt if it doesn't exist"""
-    # These match the imports used in sqlm.py, schema_awareness.py, etc.
-    requirements_content = """streamlit>=1.28.0
+    if not Path("requirements.txt").exists():
+        # These match the imports used in sqlm.py, schema_awareness.py, etc.
+        requirements_content = """streamlit>=1.28.0
 pandas>=2.0.0
 plotly>=5.17.0
 python-dotenv>=1.0.0
@@ -40,8 +41,6 @@ google-generativeai>=0.3.0
 pymysql>=1.1.0
 psycopg2-binary>=2.9.0
 """
-    
-    if not Path("requirements.txt").exists():
         print("\n📝 Creating requirements.txt...")
         with open("requirements.txt", "w") as f:
             f.write(requirements_content)
@@ -86,7 +85,7 @@ def create_env_file():
     # We store standard configuration compatible with sqlm.py
     env_content = f"""# Gemini AI Configuration
 GEMINI_API_KEY={api_key}
-GEMINI_MODEL=models/gemini-2.0-flash
+GEMINI_MODEL=models/gemini-1.5-flash
 GEMINI_MAX_TOKENS=8192
 
 # SQL Configuration
@@ -229,9 +228,8 @@ def main():
     
     # Step 3: Install dependencies
     response = input("\n📦 Install dependencies now? (Y/n): ")
-    if response.lower() != 'n':
-        if not install_dependencies():
-            print("\n⚠️  Automatic installation failed. Please run: pip install -r requirements.txt")
+    if response.lower() != 'n' and not install_dependencies():
+        print("\n⚠️  Automatic installation failed. Please run: pip install -r requirements.txt")
     
     # Step 4: Create .env file
     create_env_file()

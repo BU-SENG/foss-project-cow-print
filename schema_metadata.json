@@ -1,8 +1,8 @@
 {
   "database_name": "movies",
   "database_type": "mysql",
-  "created_at": "2025-11-20T11:28:54.660653",
-  "last_updated": "2025-11-20T11:28:54.660653",
+  "created_at": "2025-11-20T12:30:20.365539",
+  "last_updated": "2025-11-20T12:30:20.365539",
   "version": 1,
   "table_count": 2,
   "schema_hash": "f498efbc1d00efc503a1cc68fd6d2f0d",
