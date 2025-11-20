@@ -290,9 +290,10 @@ class DatabaseExecutor:
         except Exception as e:
             return False, f"Connection test failed: {str(e)}"
     
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_execution_stats(self) -> Dict[str, Any]:
         """
         Get execution statistics.
+        Renamed from get_statistics to match frontend calls.
         
         Returns:
             Dictionary with statistics
@@ -361,7 +362,8 @@ if __name__ == "__main__":
     
     # Test statistics
     print("\n--- Execution Statistics ---")
-    stats = executor.get_statistics()
+    # --- UPDATED LINE BELOW ---
+    stats = executor.get_execution_stats() 
     print(json.dumps(stats, indent=2))
     
     conn.close()
