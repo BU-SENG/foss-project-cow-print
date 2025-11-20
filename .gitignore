@@ -76,7 +76,7 @@ dist/
 test_output/
 
 
-ut
+*.ut
 *logs
 *actions
 *notifications
