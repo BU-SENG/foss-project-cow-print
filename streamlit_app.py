@@ -425,6 +425,12 @@ def display_statistics():
 def main():
     display_header()
     sidebar_database_connection()
+
+    # ================== ADMIN CONSOLE ACCESS ==================
+    st.sidebar.markdown("---")
+    st.sidebar.write("🔐 For administrators")
+    if st.sidebar.button("Open Admin Console"):
+        st.switch_page("pages/admin_console.py")
     
     if st.session_state.connected:
         display_statistics()
