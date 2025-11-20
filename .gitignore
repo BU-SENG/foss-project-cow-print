@@ -49,3 +49,5 @@ config.json
 # Ignore specific directories
 data/
 
+# Ignore specialized schema snapshots (generated at runtime)
+specialized_*.txt

@@ -131,7 +131,7 @@ def sidebar_database_connection():
                 help="Path to your SQLite database file"
             )
             
-            if st.sidebar.button("🔌 Connect", width="stretch"):
+            if st.sidebar.button("🔌 Connect", use_container_width=True):
                 with st.spinner("Connecting to database..."):
                     try:
                         sam = SchemaAwarenessModule()
@@ -167,7 +167,7 @@ def sidebar_database_connection():
             password = st.sidebar.text_input("Password", type="password")
             database = st.sidebar.text_input("Database Name")
             
-            if st.sidebar.button("🔌 Connect", width="stretch"):
+            if st.sidebar.button("🔌 Connect", use_container_width=True):
                 if not all([user, password, database]):
                     st.sidebar.error("❌ Please fill in all fields")
                 else:
@@ -215,7 +215,7 @@ def sidebar_database_connection():
                 **Version:** {metadata.version}
             """)
         
-        if st.sidebar.button("🔄 Refresh Schema", width="stretch"):
+        if st.sidebar.button("🔄 Refresh Schema", use_container_width=True):
             with st.spinner("Refreshing schema..."):
                 st.session_state.sam.generate_full_schema()
                 with open(st.session_state.sam.schema_file, 'r') as f:
@@ -223,7 +223,7 @@ def sidebar_database_connection():
                 st.session_state.reasoner.update_schema(schema_text)
                 st.sidebar.success("✅ Schema refreshed!")
         
-        if st.sidebar.button("🔌 Disconnect", width="stretch"):
+        if st.sidebar.button("🔌 Disconnect", use_container_width=True):
             st.session_state.sam.close()
             st.session_state.connected = False
             st.session_state.sam = None
@@ -285,6 +285,40 @@ def display_available_tables():
                     st.markdown(f"{icon} **{table}**")
 
 
+def display_data_visualization(df: pd.DataFrame):
+    """Display visualization options for numeric data."""
+    numeric_cols = df.select_dtypes(include=['number']).columns
+    if len(numeric_cols) == 0:
+        return
+    
+    st.markdown("#### 📈 Data Visualization")
+    viz_col1, viz_col2 = st.columns(2)
+    
+    with viz_col1:
+        chart_type = st.selectbox(
+            "Chart Type",
+            ["Bar Chart", "Line Chart", "Scatter Plot", "Pie Chart"],
+            key="chart_type_selector"
+        )
+    
+    with viz_col2:
+        y_col = st.selectbox("Y-Axis", numeric_cols, key="y_axis_selector")
+    
+    if chart_type == "Bar Chart" and len(df.columns) >= 2:
+        fig = px.bar(df, x=df.columns[0], y=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+    elif chart_type == "Line Chart" and len(df.columns) >= 2:
+        fig = px.line(df, x=df.columns[0], y=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+    elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
+        x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
+        fig = px.scatter(df, x=x_col, y=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+    elif chart_type == "Pie Chart" and len(df.columns) >= 2:
+        fig = px.pie(df, names=df.columns[0], values=y_col)
+        st.plotly_chart(fig, use_container_width=True)
+
+
 def display_execution_results(formatted: Dict, sql: str, intent: str):
     """
     Display query execution results with visualizations
@@ -310,64 +344,29 @@ def display_execution_results(formatted: Dict, sql: str, intent: str):
     with col3:
         st.metric("Status", formatted['status'].upper())
     
-    # Show Data (Success Case)
-    if formatted['success']:
-        if formatted['has_data'] and formatted['data']:
-            st.markdown("#### 📊 Query Output")
-            df = pd.DataFrame(formatted['data'])
-            st.dataframe(df, width="stretch", height=400)
-            
-            # Download button
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Results as CSV",
-                data=csv,
-                file_name=f"query_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
-            
-            # Visualization
-            numeric_cols = df.select_dtypes(include=['number']).columns
-            if len(numeric_cols) > 0:
-                st.markdown("#### 📈 Data Visualization")
-                viz_col1, viz_col2 = st.columns(2)
-                
-                with viz_col1:
-                    chart_type = st.selectbox(
-                        "Chart Type",
-                        ["Bar Chart", "Line Chart", "Scatter Plot", "Pie Chart"],
-                        key="chart_type_selector"
-                    )
-                
-                with viz_col2:
-                    y_col = st.selectbox("Y-Axis", numeric_cols, key="y_axis_selector")
-                
-                # Generate chart
-                if chart_type == "Bar Chart" and len(df.columns) >= 2:
-                    fig = px.bar(df, x=df.columns[0], y=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-                elif chart_type == "Line Chart" and len(df.columns) >= 2:
-                    fig = px.line(df, x=df.columns[0], y=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-                elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
-                    x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
-                    fig = px.scatter(df, x=x_col, y=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-                elif chart_type == "Pie Chart" and len(df.columns) >= 2:
-                    fig = px.pie(df, names=df.columns[0], values=y_col)
-                    st.plotly_chart(fig, use_container_width=True)
-
-        elif formatted['columns']: 
-            # Query worked (SELECT/SHOW) but returned 0 rows
-            st.warning("⚠️ Query executed successfully, but returned 0 results (Empty Set).")
-        else:
-            # Query worked (INSERT/UPDATE) and has no return columns
-            st.info(f"ℹ️ Operation completed. {formatted['rows_affected']} rows were affected.")
-
-    # Failure Case
-    else:
+    if not formatted['success']:
         if formatted.get('warnings'):
             st.warning(f"Warnings: {formatted['warnings']}")
+        return
+    
+    if formatted['has_data'] and formatted['data']:
+        st.markdown("#### 📊 Query Output")
+        df = pd.DataFrame(formatted['data'])
+        st.dataframe(df, use_container_width=True, height=400)
+        
+        csv = df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download Results as CSV",
+            data=csv,
+            file_name=f"query_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+        
+        display_data_visualization(df)
+    elif formatted['columns']:
+        st.warning("⚠️ Query executed successfully, but returned 0 results (Empty Set).")
+    else:
+        st.info(f"ℹ️ Operation completed. {formatted['rows_affected']} rows were affected.")
 
 
 def display_query_interface():
@@ -407,9 +406,9 @@ def display_query_interface():
     # Execute button
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        execute_btn = st.button("🚀 Generate SQL", width="stretch")
+        execute_btn = st.button("🚀 Generate SQL", use_container_width=True)
     with col2:
-        if st.button("🗑️ Clear History", width="stretch"):
+        if st.button("🗑️ Clear History", use_container_width=True):
             st.session_state.query_history = []
             if st.session_state.executor:
                 st.session_state.executor.clear_history()
@@ -551,7 +550,7 @@ def display_query_interface():
             # Editable SQL text area
             edited_sql = st.text_area(
                 "You can manually edit the SQL or click 'Refine with AI' below",
-                value=output.sql if output.sql else "",
+                value=output.sql or "",
                 height=150,
                 key="sql_editor",
                 help="Edit the SQL directly or use the refinement box below"
@@ -568,7 +567,7 @@ def display_query_interface():
                 key="refinement_prompt"
             )
             
-            if st.button("🔄 Refine with AI", width="stretch"):
+            if st.button("🔄 Refine with AI", use_container_width=True):
                 if refinement:
                     with st.spinner("🤖 Refining SQL..."):
                         try:
@@ -593,13 +592,13 @@ def display_query_interface():
                     st.warning("Please enter a refinement instruction")
             
             # Manual execution button
-            if st.button("▶️ Execute Edited SQL", width="stretch", type="primary"):
+            if st.button("▶️ Execute Edited SQL", use_container_width=True, type="primary"):
                 st.session_state.execute_edited_sql = True
                 st.rerun()
             
             # Copy SQL button
             st.code("", language="sql")  # Spacer
-            if st.button("📋 Copy SQL", width="stretch"):
+            if st.button("📋 Copy SQL", use_container_width=True):
                 st.toast("✅ SQL copied to clipboard!", icon="📋")
         
         # ========== EXECUTE EDITED SQL ==========
