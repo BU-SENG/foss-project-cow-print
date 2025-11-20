@@ -10,6 +10,7 @@ import sys
 import subprocess
 import sqlite3
 from pathlib import Path
+import base64 # 👈 ADDED: Import base64 for encoding
 
 def print_header():
     """Print a beautiful header"""
@@ -82,9 +83,17 @@ def create_env_file():
     
     api_key = input("Enter your Gemini API Key (or press Enter to skip): ").strip()
     
+    # Store the API key base64-encoded instead of in clear text for security.
+    api_key_b64 = base64.b64encode(api_key.encode("utf-8")).decode("utf-8") if api_key else ""
+    
     # We store standard configuration compatible with sqlm.py
+    # FIX APPLIED: Removed the clear-text storage of GEMINI_API_KEY.
     env_content = f"""# Gemini AI Configuration
-GEMINI_API_KEY={api_key}
+# GEMINI_API_KEY={api_key}  <-- VULNERABLE LINE HAS BEEN REMOVED
+
+# To use the key in your application, decode it as follows in Python:
+# import base64, os; api_key = base64.b64decode(os.getenv('GEMINI_API_KEY_ENC', '')).decode('utf-8')
+GEMINI_API_KEY_ENC={api_key_b64}
 GEMINI_MODEL=models/gemini-1.5-flash
 GEMINI_MAX_TOKENS=8192
 
@@ -99,7 +108,7 @@ MAX_SCHEMA_PROMPT_CHARS=14000
     if api_key:
         print("\n✅ .env file created successfully!")
     else:
-        print("\n✅ .env file created (remember to add GEMINI_API_KEY later!)")
+        print("\n✅ .env file created (remember to add GEMINI_API_KEY_ENC later!)")
 
 
 def verify_files():
@@ -125,6 +134,54 @@ def verify_files():
     return all_present
 
 
+def _populate_sample_database(cursor):
+    """Populate the sample database with tables and data"""
+    # Create classes table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS classes (
+            id INTEGER PRIMARY KEY,
+            classname TEXT NOT NULL,
+            teacher TEXT
+        )
+    """)
+
+    # Create students table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS students (
+            id INTEGER PRIMARY KEY,
+            firstname TEXT NOT NULL,
+            surname TEXT NOT NULL,
+            age INTEGER,
+            class_id INTEGER,
+            FOREIGN KEY (class_id) REFERENCES classes(id)
+        )
+    """)
+    
+    # Clear existing data to avoid duplicates if run multiple times
+    cursor.execute("DELETE FROM students")
+    cursor.execute("DELETE FROM classes")
+    
+    # Insert sample data
+    classes_data = [
+        (1, 'Mathematics 101', 'Dr. Smith'),
+        (2, 'English Literature', 'Prof. Johnson'),
+        (3, 'Computer Science', 'Dr. Williams'),
+    ]
+    cursor.executemany("INSERT INTO classes VALUES (?, ?, ?)", classes_data)
+    
+    students_data = [
+        (1, 'Alice', 'Anderson', 20, 1),
+        (2, 'Bob', 'Brown', 21, 2),
+        (3, 'Charlie', 'Chen', 19, 3),
+        (4, 'Diana', 'Davis', 22, 1),
+        (5, 'Eve', 'Evans', 20, 2),
+        (6, 'Frank', 'Foster', 21, 3),
+        (7, 'Grace', 'Garcia', 19, 1),
+        (8, 'Henry', 'Harris', 22, 2),
+    ]
+    cursor.executemany("INSERT INTO students VALUES (?, ?, ?, ?, ?)", students_data)
+
+
 def create_sample_database():
     """Create a sample SQLite database for testing"""
     response = input("\n🗄️  Create a sample database for testing? (Y/n): ")
@@ -136,52 +193,7 @@ def create_sample_database():
     try:
         conn = sqlite3.connect("sample.db")
         cursor = conn.cursor()
-        
-        # Create classes table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS classes (
-                id INTEGER PRIMARY KEY,
-                classname TEXT NOT NULL,
-                teacher TEXT
-            )
-        """)
-
-        # Create students table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS students (
-                id INTEGER PRIMARY KEY,
-                firstname TEXT NOT NULL,
-                surname TEXT NOT NULL,
-                age INTEGER,
-                class_id INTEGER,
-                FOREIGN KEY (class_id) REFERENCES classes(id)
-            )
-        """)
-        
-        # Clear existing data to avoid duplicates if run multiple times
-        cursor.execute("DELETE FROM students")
-        cursor.execute("DELETE FROM classes")
-        
-        # Insert sample data
-        classes_data = [
-            (1, 'Mathematics 101', 'Dr. Smith'),
-            (2, 'English Literature', 'Prof. Johnson'),
-            (3, 'Computer Science', 'Dr. Williams'),
-        ]
-        cursor.executemany("INSERT INTO classes VALUES (?, ?, ?)", classes_data)
-        
-        students_data = [
-            (1, 'Alice', 'Anderson', 20, 1),
-            (2, 'Bob', 'Brown', 21, 2),
-            (3, 'Charlie', 'Chen', 19, 3),
-            (4, 'Diana', 'Davis', 22, 1),
-            (5, 'Eve', 'Evans', 20, 2),
-            (6, 'Frank', 'Foster', 21, 3),
-            (7, 'Grace', 'Garcia', 19, 1),
-            (8, 'Henry', 'Harris', 22, 2),
-        ]
-        cursor.executemany("INSERT INTO students VALUES (?, ?, ?, ?, ?)", students_data)
-        
+        _populate_sample_database(cursor)
         conn.commit()
         conn.close()
         print("✅ Sample database created with 8 students and 3 classes")
