@@ -207,8 +207,8 @@ def sidebar_database_connection():
         if st.sidebar.button("🔌 Disconnect"):
             try:
                 st.session_state.sam.close()
-            except Exception:
-                pass
+            except Exception as e:
+                st.sidebar.error(f"Disconnect failed: {e}")
             for k in ['connected','sam','reasoner','executor']:
                 st.session_state[k] = None if k!='connected' else False
             st.rerun()
