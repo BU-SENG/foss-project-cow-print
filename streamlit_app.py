@@ -1285,6 +1285,12 @@ def main():
         
         sidebar_database_connection()
 
+        #Admin Console Access
+        st.sidebar.markdown("---")
+        st.sidebar.write(" 🔐 Admin Console")
+        if st.sidebar.button("Open Admin Console"):
+            st.switch_page("pages/admin_console.py")
+
         # Debug sections (remove in production)
         if st.session_state.get('connected'):
             debug_schema_info()
