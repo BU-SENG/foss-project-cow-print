@@ -315,7 +315,7 @@ def display_execution_results(formatted: Dict, sql: str, intent: str):
         if formatted['has_data'] and formatted['data']:
             st.markdown("#### 📊 Query Output")
             df = pd.DataFrame(formatted['data'])
-            st.dataframe(df, width="stretch", height=400)
+            st.dataframe(df, use_container_width=True, height=400)
             
             # Download button
             csv = df.to_csv(index=False)
