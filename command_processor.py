@@ -38,29 +38,28 @@ class CommandProcessor:
             schema_file (str): The path to the file containing the full
                                database schema.
         """
+        # FIX: Always assign self.schema_file first so it exists on the instance
+        self.schema_file = schema_file
+
         if not os.path.exists(schema_file):
             # Create an empty file if it doesn't exist so the code doesn't crash immediately
             # expected workflow is that SchemaAwarenessModule runs first
             print(f"Warning: Schema file not found at: {schema_file}. initializing empty.")
             self.full_schema_text = ""
-        else:
-            self.schema_file = schema_file
 
         self.full_schema_text: str = ""
         self.full_schema_dict: Dict[str, str] = {}
         self.snapshot_version = 0
 
         # Initialize Reasoner
+        # We pass an empty schema initially; it will be updated when we load the file
         self.reasoner = GeminiReasoner(schema_snapshot="", api_key=os.getenv("GEMINI_API_KEY"))
 
-        if os.path.exists(schema_file):
+        # Only attempt to load if the file actually exists
+        if os.path.exists(self.schema_file):
             self._load_and_parse_schema()
             
         print("Command Processor initialized successfully.")
-        if self.reasoner._use_real_genai():
-            print(f"Using real Gemini model: {self.reasoner.model_name}")
-        else:
-            print("Using mock LLM (Gemini API not available or API key missing).")
 
 
     def _load_and_parse_schema(self):
@@ -159,7 +158,8 @@ class CommandProcessor:
                 selected_tables = available_tables.copy()
                 print(f"Using ALL tables: {', '.join(selected_tables)}")
                 schema_to_use = self.create_specialized_snapshot(selected_tables)
-                if schema_to_use is None: continue
+                if schema_to_use is None:
+                    continue
             else:
                 parts = [p.strip() for p in tables_input.split(',')]
                 for part in parts:
@@ -174,10 +174,11 @@ class CommandProcessor:
                     print("Error: No valid tables were selected.")
                     continue
                 
-                print(f"Tables selected: {', '.join(selected_tables)}")
                 schema_to_use = self.create_specialized_snapshot(selected_tables)
-                if schema_to_use is None: continue
+                if schema_to_use is None:
+                    continue
 
+            # Step 3: Get user NL query and dialect
             # Step 3: Get user NL query and dialect
             nl_query = input("\nEnter your Natural Language query: ").strip()
             if not nl_query:

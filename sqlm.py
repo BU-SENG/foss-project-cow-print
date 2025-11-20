@@ -57,7 +57,7 @@ except Exception:
 
 # Config from env
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash") # Default to flash for speed
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-1.5-flash") # Default to flash for speed
 GEMINI_MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "8192"))
 DEFAULT_DIALECT = os.getenv("DEFAULT_DIALECT", "mysql")
 MAX_SCHEMA_PROMPT_CHARS = int(os.getenv("MAX_SCHEMA_PROMPT_CHARS", "14000"))
@@ -196,7 +196,8 @@ def parse_and_validate_sql(sql: str, dialect: str) -> Tuple[bool, List[str], Dic
             return True, warnings, metadata
 
         except Exception as e:
-            return False, [f"sqlglot parse error: {e}"], metadata
+            # FIX: Instead of failing hard, warn and fall through to regex fallback
+            warnings.append(f"sqlglot parse error (falling back to regex): {e}")
 
     # Fallback: minimal parsing
     simple_tables = re.findall(r'\bfrom\s+([`"]?)(\w+)\1|\binto\s+([`"]?)(\w+)\3', sql, flags=re.IGNORECASE)
@@ -352,10 +353,8 @@ class GeminiReasoner:
             # Salvage attempt
             s, e = text.find("{"), text.rfind("}")
             if s != -1 and e != -1 and e > s:
-                try:
+                with contextlib.suppress(Exception):
                     json_obj = json.loads(text[s:e+1])
-                except:
-                    pass
             
             if not json_obj:
                 return ReasonerOutput(
@@ -418,8 +417,10 @@ def interactive_cli(schema_file: Optional[str], dialect: Optional[str]):
 
     while True:
         nl = input("NL> ").strip()
-        if not nl: continue
-        if nl.lower() in ("exit", "quit"): break
+        if not nl:
+            continue
+        if nl.lower() in ("exit", "quit"):
+            break
         
         payload = CommandPayload(intent="select", raw_nl=nl, normalized=nl, dialect=dialect)
         out = reasoner.generate(payload)
@@ -430,7 +431,8 @@ def interactive_cli(schema_file: Optional[str], dialect: Optional[str]):
         print(f"📝 SQL: {out.sql}")
         print(f"⚙️  Intent: {out.intent}")
         print(f"🛡️  Safe: {out.safe_to_execute}")
-        if out.errors: print(f"❌ Errors: {out.errors}")
+        if out.errors:
+            print(f"❌ Errors: {out.errors}")
         print("--------------\n")
 
 
