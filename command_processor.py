@@ -4,19 +4,6 @@ Command Processing Layer (CLP)
 
 This module acts as the interactive interface for the user, fulfilling the role
 of the Command Processor in the system's logical pipeline.
-
-Workflow:
-1.  Loads the full database schema from a file (e.g., schema.txt).
-2.  Presents the user with available tables.
-3.  Allows the user to select specific tables for their query OR skip selection
-    for operations that don't require table-specific context (like CREATE TABLE).
-4.  Creates a "specialized snapshot" of the schema containing only the
-    selected tables, OR uses the full schema if no tables are selected.
-5.  Prompts the user for a Natural Language (NL) query and SQL dialect.
-6.  Constructs a CommandPayload and sends it to the Gemini AI Reasoning Core.
-7.  Receives the ReasonerOutput and displays the generated SQL and other
-    metadata to the user.
-8.  Simulates notifying the Schema Awareness Module of potential changes.
 """
 
 import os
@@ -28,10 +15,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-
-
 # This script assumes 'sqlm.py' is in the same directory.
-# It imports the necessary components from the AI processing module.
 try:
     from sqlm import GeminiReasoner, CommandPayload
 except ImportError:
@@ -55,18 +39,23 @@ class CommandProcessor:
                                database schema.
         """
         if not os.path.exists(schema_file):
-            raise FileNotFoundError(f"Schema file not found at: {schema_file}")
-        self.schema_file = schema_file
+            # Create an empty file if it doesn't exist so the code doesn't crash immediately
+            # expected workflow is that SchemaAwarenessModule runs first
+            print(f"Warning: Schema file not found at: {schema_file}. initializing empty.")
+            self.full_schema_text = ""
+        else:
+            self.schema_file = schema_file
+
         self.full_schema_text: str = ""
         self.full_schema_dict: Dict[str, str] = {}
         self.snapshot_version = 0
 
-        # The reasoner is initialized here and its schema can be updated later.
-        # This prevents re-initializing the model for every query.
-        # We pass an empty schema initially; it will be updated on the first query.
-        self.reasoner = GeminiReasoner(schema_snapshot="",api_key=os.getenv("GEMINI_API_KEY"))
+        # Initialize Reasoner
+        self.reasoner = GeminiReasoner(schema_snapshot="", api_key=os.getenv("GEMINI_API_KEY"))
 
-        self._load_and_parse_schema()
+        if os.path.exists(schema_file):
+            self._load_and_parse_schema()
+            
         print("Command Processor initialized successfully.")
         if self.reasoner._use_real_genai():
             print(f"Using real Gemini model: {self.reasoner.model_name}")
@@ -83,23 +72,19 @@ class CommandProcessor:
         with open(self.schema_file, "r", encoding="utf-8") as f:
             self.full_schema_text = f.read()
 
-        # A simple regex-based parser to extract table definitions.
-        # It looks for "Table <name>:" and captures everything until the next "Table" or end of file.
+        # Regex parser to extract table definitions.
         table_sections = re.split(r'\n\s*Table ', self.full_schema_text)
         
-        # The first element might be the "Database: ..." line, so we skip it if it is.
         start_index = 1 if table_sections[0].strip().startswith("Database:") else 0
         
         for section in table_sections[start_index:]:
             if ':' in section:
                 table_name, table_def = section.split(':', 1)
                 table_name = table_name.strip()
-                # We reconstruct the "Table <name>:" prefix for clarity in the snapshot.
                 self.full_schema_dict[table_name] = f"Table {table_name}:{table_def.strip()}"
         
         if not self.full_schema_dict:
             print("\nWarning: Could not parse any table definitions from the schema file.")
-            print("Please ensure the format is 'Table <tablename>:' followed by column definitions.")
         else:
             print(f"Successfully parsed {len(self.full_schema_dict)} tables.")
 
@@ -118,13 +103,6 @@ class CommandProcessor:
         """
         Creates a schema snapshot string containing only the definitions for
         the specified tables.
-
-        Args:
-            table_names (List[str]): A list of table names to include.
-
-        Returns:
-            Optional[str]: A string containing the combined schema definitions,
-                           or None if any table is not found.
         """
         snapshot_parts = []
         for name in table_names:
@@ -135,9 +113,7 @@ class CommandProcessor:
                 return None
         
         self.snapshot_version += 1
-        # The conceptual name "specialized_table<n>" refers to this generated snapshot.
         print(f"\nSuccessfully created specialized_snapshot (version {self.snapshot_version}) with {len(table_names)} tables.")
-        
         return "\n\n".join(snapshot_parts)
 
     def run_interactive_session(self):
@@ -151,14 +127,17 @@ class CommandProcessor:
             # Step 1: Display available tables
             print("\nAvailable Tables:")
             available_tables = self.get_available_tables()
+            if not available_tables:
+                print("  (No tables found. Make sure to connect a DB via Schema Awareness Module first)")
+            
             for i, table in enumerate(available_tables):
                 print(f"  {i+1}. {table}")
 
-            # Step 2: Get user table selection (OPTIONAL)
+            # Step 2: Get user table selection
             print("\nOptions:")
-            print("  - Type 'all' to use ALL tables in the database")
-            print("  - Type specific table numbers/names (comma-separated) for selected tables")
-            print("  - Press ENTER to use full database schema (for CREATE TABLE, DROP, etc.)")
+            print("  - Type 'all' to use ALL tables")
+            print("  - Type specific table numbers/names (comma-separated)")
+            print("  - Press ENTER to use full database schema")
             tables_input = input("Selection: ").strip()
             
             if tables_input.lower() == 'exit':
@@ -173,19 +152,15 @@ class CommandProcessor:
             use_full_schema = False
             
             if not tables_input:
-                # User pressed ENTER - use full database schema
                 print("Using full database schema (database-level operations).")
                 schema_to_use = self.full_schema_text
                 use_full_schema = True
             elif tables_input.lower() == 'all':
-                # User typed 'all' - use all tables
                 selected_tables = available_tables.copy()
                 print(f"Using ALL tables: {', '.join(selected_tables)}")
                 schema_to_use = self.create_specialized_snapshot(selected_tables)
-                if schema_to_use is None:
-                    continue
+                if schema_to_use is None: continue
             else:
-                # User selected specific tables
                 parts = [p.strip() for p in tables_input.split(',')]
                 for part in parts:
                     if part.isdigit() and 1 <= int(part) <= len(available_tables):
@@ -196,15 +171,12 @@ class CommandProcessor:
                         print(f"Warning: '{part}' is not a valid table name or number. It will be ignored.")
                 
                 if not selected_tables:
-                    print("Error: No valid tables were selected. Please try again.")
+                    print("Error: No valid tables were selected.")
                     continue
                 
-                print(f"Tables selected for this query: {', '.join(selected_tables)}")
-                
-                # Create specialized snapshot
+                print(f"Tables selected: {', '.join(selected_tables)}")
                 schema_to_use = self.create_specialized_snapshot(selected_tables)
-                if schema_to_use is None:
-                    continue
+                if schema_to_use is None: continue
 
             # Step 3: Get user NL query and dialect
             nl_query = input("\nEnter your Natural Language query: ").strip()
@@ -217,26 +189,34 @@ class CommandProcessor:
             # Step 4: Update reasoner schema and create CommandPayload
             self.reasoner.update_schema(schema_to_use)
             payload = CommandPayload(
-                intent="query",  # Defaulting to 'query' as CLP focuses on NL-to-SQL
+                intent="query",
                 raw_nl=nl_query,
                 dialect=dialect,
-                allow_destructive=False # Safety default - can be made interactive
+                allow_destructive=False
             )
 
             # Step 5: Call the Gemini Reasoner
             print("\nTranslating NL to SQL via Gemini Reasoning Core...")
             output = self.reasoner.generate(payload)
 
-            # Step 6: Display the results
+            # Step 6: Display the results (UPDATED)
             print("\n--- CLP Received from Reasoner ---")
-            print(f"Generated SQL: {output.metadata.get('pretty', output.sql)}")
-            print(f"Intent: {output.intent}")
-            print(f"Dialect: {output.dialect}")
-            print(f"Safe to Execute: {output.safe_to_execute}")
-            print(f"Confidence: {output.confidence:.2f}")
-            print(f"Explanation: {output.explain_text}")
-            print(f"Warnings: {output.warnings}")
-            print(f"Errors: {output.errors}")
+            # New: Display Chain of Thought
+            if output.thought_process:
+                print(f"💭 Thought Process: {output.thought_process}")
+                print("-" * 30)
+            
+            print(f"📝 Generated SQL: {output.metadata.get('pretty', output.sql)}")
+            print(f"⚙️  Intent: {output.intent}")
+            print(f"🗄️  Dialect: {output.dialect}")
+            print(f"🛡️  Safe to Execute: {output.safe_to_execute}")
+            print(f"📊 Confidence: {output.confidence:.2f}")
+            print(f"💡 Explanation: {output.explain_text}")
+            
+            if output.warnings:
+                print(f"⚠️ Warnings: {output.warnings}")
+            if output.errors:
+                print(f"❌ Errors: {output.errors}")
             print("----------------------------------\n")
 
             # Step 7: Simulate Schema Awareness Module interaction
@@ -244,14 +224,11 @@ class CommandProcessor:
                 print("[CLP -> Schema Awareness Module]: Notifying module of potential schema change.")
                 update_confirm = input("A change was made. Do you wish to update the general snapshot? (yes/no): ").lower()
                 if update_confirm == 'yes':
-                    # In a real system, this would trigger a full DB scan.
-                    # Here, we just simulate it by reloading from the original file.
                     self._load_and_parse_schema()
                     print("[Schema Awareness Module]: General snapshot has been updated.")
                 else:
-                    print("[Schema Awareness Module]: Change acknowledged. General snapshot remains unchanged.")
+                    print("[Schema Awareness Module]: Change acknowledged. Snapshot unchanged.")
             
-            # Per requirement, the specialized snapshot is deleted after use (if one was created)
             if not use_full_schema and selected_tables:
                 print(f"[CLP]: Specialized snapshot version {self.snapshot_version} has been deleted after use.")
 
@@ -261,8 +238,5 @@ if __name__ == "__main__":
     try:
         clp = CommandProcessor(schema_file=SCHEMA_FILE)
         clp.run_interactive_session()
-    except FileNotFoundError as e:
-        print(f"\nFatal Error: {e}")
-        print("Please make sure the 'schema.txt' file exists in the same directory.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")

@@ -31,7 +31,7 @@ st.markdown("""
     <style>
     /* ... existing CSS ... */
     
-    /* NEW: SQL Editor Styling */
+    /* SQL Editor Styling */
     .sql-editor-container {
         background: #f8f9fa;
         padding: 1rem;
@@ -286,13 +286,15 @@ def display_available_tables():
 
 
 def display_data_visualization(df: pd.DataFrame):
-    """Display visualization options for numeric data."""
+    """Display visualization options for numeric data with robust column selection."""
     numeric_cols = df.select_dtypes(include=['number']).columns
     if len(numeric_cols) == 0:
         return
     
     st.markdown("#### 📈 Data Visualization")
-    viz_col1, viz_col2 = st.columns(2)
+    
+    # Updated to 3 columns to include X-Axis selection
+    viz_col1, viz_col2, viz_col3 = st.columns(3)
     
     with viz_col1:
         chart_type = st.selectbox(
@@ -301,21 +303,39 @@ def display_data_visualization(df: pd.DataFrame):
             key="chart_type_selector"
         )
     
+    with viz_col3:
+        # Y-Axis is strictly numeric based on previous logic
+        y_col = st.selectbox("Y-Axis (Values)", numeric_cols, key="y_axis_selector")
+        
     with viz_col2:
-        y_col = st.selectbox("Y-Axis", numeric_cols, key="y_axis_selector")
+        # X-Axis can be any column (Categories, Dates, or Numbers)
+        # We try to default to a column that isn't the selected Y column to avoid x=y charts
+        all_cols = df.columns.tolist()
+        default_x_index = 0
+        if len(all_cols) > 1 and all_cols[0] == y_col:
+            default_x_index = 1
+            
+        label_text = "Segment Labels" if chart_type == "Pie Chart" else "X-Axis (Dimension)"
+        
+        x_col = st.selectbox(
+            label_text, 
+            all_cols, 
+            index=default_x_index,
+            key="x_axis_selector"
+        )
     
-    if chart_type == "Bar Chart" and len(df.columns) >= 2:
-        fig = px.bar(df, x=df.columns[0], y=y_col)
+    # Generate charts using the explicit x_col and y_col selections
+    if chart_type == "Bar Chart":
+        fig = px.bar(df, x=x_col, y=y_col)
         st.plotly_chart(fig, use_container_width=True)
-    elif chart_type == "Line Chart" and len(df.columns) >= 2:
-        fig = px.line(df, x=df.columns[0], y=y_col)
+    elif chart_type == "Line Chart":
+        fig = px.line(df, x=x_col, y=y_col)
         st.plotly_chart(fig, use_container_width=True)
-    elif chart_type == "Scatter Plot" and len(numeric_cols) >= 2:
-        x_col = st.selectbox("X-Axis", numeric_cols, key="x_axis_selector")
+    elif chart_type == "Scatter Plot":
         fig = px.scatter(df, x=x_col, y=y_col)
         st.plotly_chart(fig, use_container_width=True)
-    elif chart_type == "Pie Chart" and len(df.columns) >= 2:
-        fig = px.pie(df, names=df.columns[0], values=y_col)
+    elif chart_type == "Pie Chart":
+        fig = px.pie(df, names=x_col, values=y_col)
         st.plotly_chart(fig, use_container_width=True)
 
 
@@ -526,6 +546,11 @@ def display_query_interface():
             st.metric("Safety", "✅ Safe" if output.safe_to_execute else "⚠️ Blocked")
         with col4:
             st.metric("Dialect", output.dialect.upper())
+        
+        # Display thought process (New Feature)
+        if output.thought_process:
+            with st.expander("💭 AI Thought Process (Chain-of-Thought)", expanded=False):
+                st.info(output.thought_process)
         
         # Display explanation
         if output.explain_text:
