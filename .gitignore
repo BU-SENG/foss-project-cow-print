@@ -1,53 +1,76 @@
+# ==========================================
+# 1. Security & Secrets (CRITICAL)
+# ==========================================
+# Never push your API keys or environment configurations
 .env
-# .gitignore
-# Ignore environment files
-.env
-# Ignore Python cache files
-__pycache__/
-*.pyc
-# Ignore virtual environment directories
-
-venv/
-# Ignore IDE/editor specific files
-.idea/
-.vscode/
-# Ignore log files
-*.log
-# Ignore database files
-*.sqlite3
-# Ignore compiled Python files
-*.pyo
-
-# Ignore Jupyter Notebook checkpoints
-.ipynb_checkpoints/
-# Ignore coverage reports
-.coverage
-# Ignore local configuration files
-*.local
-# Ignore Docker files
-Dockerfile
-docker-compose.yml
-# Ignore test output files
-test_output/
-# Ignore sensitive files
+.env.local
+.env.*
+# Exception: You might want to commit an example file (if you create one later)
+!.env.example
 secrets.json
-# Ignore any other sensitive files
-*.env.local
-# Ignore temporary files
-*.tmp
-# Ignore backup files
-*.bak
-# Ignore migrations
-migrations/
-
-# Ignore specific model files
-models/
-# Ignore specific configuration files
-config.json
-# Ignore any other files that should not be tracked
 *.secret
-# Ignore specific directories
-data/
+*.key
 
-# Ignore specialized schema snapshots (generated at runtime)
+# ==========================================
+# 2. AetherDB Specific Generated Files
+# ==========================================
+# Auto-generated schema snapshots (from schema_awareness.py)
+schema.txt
+schema_metadata.json
+
+# Temporary specialized snapshots for specific queries
 specialized_*.txt
+
+# Local SQLite databases (including the sample created by setup.py)
+*.db
+*.sqlite
+*.sqlite3
+sample.db
+database.db
+
+# CSV exports downloaded from the Streamlit interface
+query_result_*.csv
+
+# ==========================================
+# 3. Python & Virtual Environments
+# ==========================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments (various naming conventions)
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ==========================================
+# 4. Tooling & IDEs
+# ==========================================
+# VS Code
+.vscode/
+
+# JetBrains (PyCharm)
+.idea/
+
+# Mac OS
+.DS_Store
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# ==========================================
+# 5. Logs & Temporary Files
+# ==========================================
+*.log
+*.tmp
+*.bak
+test_output/

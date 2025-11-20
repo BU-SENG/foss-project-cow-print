@@ -233,7 +233,10 @@ class SchemaAwarenessModule:
 
     def _quote_identifier(self, identifier: str) -> str:
         """
-        Safely quote a SQL identifier (table or column name) to prevent SQL injection.
+        Safely quote a SQL identifier (table or column name) based on the database type.
+        
+        This handles special characters (spaces, hyphens) by using dialect-specific 
+        escaping instead of restrictive regex validation.
         
         Args:
             identifier: The identifier to quote
@@ -241,19 +244,28 @@ class SchemaAwarenessModule:
         Returns:
             str: Properly quoted identifier for the current database type
         """
-        # Validate identifier - only allow alphanumeric characters and underscores
-        if not identifier or not all(c.isalnum() or c == '_' for c in identifier):
-            raise ValueError(f"Invalid identifier: {identifier}")
+        if not identifier:
+            raise ValueError("Identifier cannot be empty.")
+            
+        # Sanity check: Null bytes are never valid in SQL identifiers
+        if '\0' in identifier:
+            raise ValueError("Invalid identifier: contains null byte.")
         
         if self.db_type == DatabaseType.MYSQL:
-            # MySQL uses backticks
-            return f"`{identifier}`"
+            # MySQL uses backticks. Escape existing backticks by doubling them.
+            escaped = identifier.replace('`', '``')
+            return f"`{escaped}`"
+            
         elif self.db_type == DatabaseType.POSTGRESQL:
-            # PostgreSQL uses double quotes
-            return f'"{identifier}"'
+            # PostgreSQL uses double quotes. Escape existing double quotes.
+            escaped = identifier.replace('"', '""')
+            return f'"{escaped}"'
+            
         elif self.db_type == DatabaseType.SQLITE:
-            # SQLite uses backticks or double quotes
-            return f"`{identifier}`"
+            # SQLite allows double quotes (standard SQL).
+            escaped = identifier.replace('"', '""')
+            return f'"{escaped}"'
+            
         else:
             raise ValueError(f"Unsupported database type for identifier quoting")
 
