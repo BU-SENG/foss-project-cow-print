@@ -231,6 +231,32 @@ class SchemaAwarenessModule:
             print(f"[SAM] Error getting tables: {e}")
             return []
 
+    def _quote_identifier(self, identifier: str) -> str:
+        """
+        Safely quote a SQL identifier (table or column name) to prevent SQL injection.
+        
+        Args:
+            identifier: The identifier to quote
+            
+        Returns:
+            str: Properly quoted identifier for the current database type
+        """
+        # Validate identifier - only allow alphanumeric characters and underscores
+        if not identifier or not all(c.isalnum() or c == '_' for c in identifier):
+            raise ValueError(f"Invalid identifier: {identifier}")
+        
+        if self.db_type == DatabaseType.MYSQL:
+            # MySQL uses backticks
+            return f"`{identifier}`"
+        elif self.db_type == DatabaseType.POSTGRESQL:
+            # PostgreSQL uses double quotes
+            return f'"{identifier}"'
+        elif self.db_type == DatabaseType.SQLITE:
+            # SQLite uses backticks or double quotes
+            return f"`{identifier}`"
+        else:
+            raise ValueError(f"Unsupported database type for identifier quoting")
+
     def _get_table_schema(self, table_name: str) -> TableSchema:
         """Get detailed schema information for a specific table"""
         cursor = self.connection.cursor()
@@ -243,7 +269,8 @@ class SchemaAwarenessModule:
             
             if self.db_type == DatabaseType.MYSQL:
                 # Get columns
-                cursor.execute(f"DESCRIBE `{table_name}`")
+                quoted_table = self._quote_identifier(table_name)
+                cursor.execute(f"DESCRIBE {quoted_table}")
                 for row in cursor.fetchall():
                     col_info = {
                         'name': row['Field'],
@@ -257,13 +284,13 @@ class SchemaAwarenessModule:
                         primary_keys.append(row['Field'])
                 
                 # Get foreign keys
-                cursor.execute(f"""
+                cursor.execute("""
                     SELECT COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
                     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                     WHERE TABLE_SCHEMA = DATABASE()
-                    AND TABLE_NAME = '{table_name}' 
+                    AND TABLE_NAME = %s
                     AND REFERENCED_TABLE_NAME IS NOT NULL
-                """)
+                """, (table_name,))
                 foreign_keys.extend([{
                     'column': row['COLUMN_NAME'],
                     'references_table': row['REFERENCED_TABLE_NAME'],
@@ -272,12 +299,12 @@ class SchemaAwarenessModule:
                 
             elif self.db_type == DatabaseType.POSTGRESQL:
                 # Get columns
-                cursor.execute(f"""
+                cursor.execute("""
                     SELECT column_name, data_type, is_nullable, column_default
                     FROM information_schema.columns
-                    WHERE table_name = '{table_name}'
+                    WHERE table_name = %s
                     ORDER BY ordinal_position
-                """)
+                """, (table_name,))
                 rows = cursor.fetchall()
                 columns.extend([{
                     'name': row[0],
@@ -287,16 +314,16 @@ class SchemaAwarenessModule:
                 } for row in rows])
                 
                 # Get primary keys
-                cursor.execute(f"""
+                cursor.execute("""
                     SELECT a.attname
                     FROM pg_index i
                     JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-                    WHERE i.indrelid = '{table_name}'::regclass AND i.indisprimary
-                """)
+                    WHERE i.indrelid = %s::regclass AND i.indisprimary
+                """, (table_name,))
                 primary_keys = [row[0] for row in cursor.fetchall()]
                 
                 # Get foreign keys
-                cursor.execute(f"""
+                cursor.execute("""
                     SELECT
                         kcu.column_name,
                         ccu.table_name AS foreign_table_name,
@@ -309,8 +336,8 @@ class SchemaAwarenessModule:
                         ON ccu.constraint_name = tc.constraint_name
                         AND ccu.table_schema = tc.table_schema
                     WHERE tc.constraint_type = 'FOREIGN KEY'
-                    AND tc.table_name = '{table_name}'
-                """)
+                    AND tc.table_name = %s
+                """, (table_name,))
                 foreign_keys.extend([{
                     'column': row[0],
                     'references_table': row[1],
@@ -319,7 +346,8 @@ class SchemaAwarenessModule:
                 
             elif self.db_type == DatabaseType.SQLITE:
                 # Get columns
-                cursor.execute(f"PRAGMA table_info(`{table_name}`)")
+                quoted_table = self._quote_identifier(table_name)
+                cursor.execute(f"PRAGMA table_info({quoted_table})")
                 rows = cursor.fetchall()
                 for row in rows:
                     columns.append({
@@ -333,7 +361,7 @@ class SchemaAwarenessModule:
                         primary_keys.append(row[1])
                 
                 # Get foreign keys
-                cursor.execute(f"PRAGMA foreign_key_list(`{table_name}`)")
+                cursor.execute(f"PRAGMA foreign_key_list({quoted_table})")
                 rows = cursor.fetchall()
                 foreign_keys.extend([{
                     'column': row[3],
@@ -343,7 +371,8 @@ class SchemaAwarenessModule:
             
             # Get row count
             try:
-                cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+                quoted_table = self._quote_identifier(table_name)
+                cursor.execute(f"SELECT COUNT(*) FROM {quoted_table}")
                 result = cursor.fetchone()
                 
                 if self.db_type == DatabaseType.SQLITE:

@@ -1,13 +1,13 @@
 {
-  "database_name": "movies",
-  "database_type": "mysql",
-  "created_at": "2025-11-19T14:24:42.211372",
-  "last_updated": "2025-11-19T14:24:42.211372",
+  "database_name": "sqlite_db",
+  "database_type": "sqlite",
+  "created_at": "2025-11-20T09:03:40.434361",
+  "last_updated": "2025-11-20T09:03:40.434361",
   "version": 1,
   "table_count": 2,
-  "schema_hash": "f498efbc1d00efc503a1cc68fd6d2f0d",
+  "schema_hash": "33ac01a34d76d5958de71b6ef975d879",
   "tables": [
-    "movie",
-    "movie_cast"
+    "students",
+    "classes"
   ]
 }
