@@ -131,7 +131,7 @@ def sidebar_database_connection():
                 help="Path to your SQLite database file"
             )
             
-            if st.sidebar.button("🔌 Connect", width="stretch"):
+            if st.sidebar.button("🔌 Connect", use_container_width=True):
                 with st.spinner("Connecting to database..."):
                     try:
                         sam = SchemaAwarenessModule()
@@ -167,7 +167,7 @@ def sidebar_database_connection():
             password = st.sidebar.text_input("Password", type="password")
             database = st.sidebar.text_input("Database Name")
             
-            if st.sidebar.button("🔌 Connect", width="stretch"):
+            if st.sidebar.button("🔌 Connect", use_container_width=True):
                 if not all([user, password, database]):
                     st.sidebar.error("❌ Please fill in all fields")
                 else:
@@ -215,7 +215,7 @@ def sidebar_database_connection():
                 **Version:** {metadata.version}
             """)
         
-        if st.sidebar.button("🔄 Refresh Schema", width="stretch"):
+        if st.sidebar.button("🔄 Refresh Schema", use_container_width=True):
             with st.spinner("Refreshing schema..."):
                 st.session_state.sam.generate_full_schema()
                 with open(st.session_state.sam.schema_file, 'r') as f:
@@ -223,7 +223,7 @@ def sidebar_database_connection():
                 st.session_state.reasoner.update_schema(schema_text)
                 st.sidebar.success("✅ Schema refreshed!")
         
-        if st.sidebar.button("🔌 Disconnect", width="stretch"):
+        if st.sidebar.button("🔌 Disconnect", use_container_width=True):
             st.session_state.sam.close()
             st.session_state.connected = False
             st.session_state.sam = None
@@ -407,9 +407,9 @@ def display_query_interface():
     # Execute button
     col1, col2, col3 = st.columns([1, 1, 2])
     with col1:
-        execute_btn = st.button("🚀 Generate SQL", width="stretch")
+        execute_btn = st.button("🚀 Generate SQL", use_container_width=True)
     with col2:
-        if st.button("🗑️ Clear History", width="stretch"):
+        if st.button("🗑️ Clear History", use_container_width=True):
             st.session_state.query_history = []
             if st.session_state.executor:
                 st.session_state.executor.clear_history()
@@ -568,7 +568,7 @@ def display_query_interface():
                 key="refinement_prompt"
             )
             
-            if st.button("🔄 Refine with AI", width="stretch"):
+            if st.button("🔄 Refine with AI", use_container_width=True):
                 if refinement:
                     with st.spinner("🤖 Refining SQL..."):
                         try:
@@ -593,13 +593,13 @@ def display_query_interface():
                     st.warning("Please enter a refinement instruction")
             
             # Manual execution button
-            if st.button("▶️ Execute Edited SQL", width="stretch", type="primary"):
+            if st.button("▶️ Execute Edited SQL", use_container_width=True, type="primary"):
                 st.session_state.execute_edited_sql = True
                 st.rerun()
             
             # Copy SQL button
             st.code("", language="sql")  # Spacer
-            if st.button("📋 Copy SQL", width="stretch"):
+            if st.button("📋 Copy SQL", use_container_width=True):
                 st.toast("✅ SQL copied to clipboard!", icon="📋")
         
         # ========== EXECUTE EDITED SQL ==========
