@@ -2,6 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 from dotenv import load_dotenv
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from streamlit_app_theme import apply_custom_theming
+
+apply_custom_theming()
 
 load_dotenv()
 
