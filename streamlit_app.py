@@ -22,6 +22,7 @@ import sqlite3
 import re
 from typing import Optional
 from dotenv import load_dotenv
+from streamlit_app_theme import apply_custom_theming, theme_toggle
 
 class ThreadSafeSQLiteConnection:
     """Thread-safe SQLite connection manager"""
@@ -121,7 +122,7 @@ st.set_page_config(
     page_title="AetherDB - AI-Powered SQL Assistant",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     menu_items={
         'Get Help': 'https://github.com/BU-SENG/foss-project-cow-print',
         'Report a bug': "https://github.com/BU-SENG/foss-project-cow-print/issues",
@@ -129,116 +130,6 @@ st.set_page_config(
     }
 )
 
-# Enhanced Custom CSS with modern design
-st.markdown("""
-<style>
-    /* Main background with gradient animation */
-    .main {
-        background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
-        background-size: 400% 400%;
-        animation: gradient 15s ease infinite;
-    }
-    
-    @keyframes gradient {
-        0% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-        100% { background-position: 0% 50%; }
-    }
-
-    .stApp {
-        background: transparent;
-    }
-
-    /* Enhanced sidebar */
-    div[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
-        border-right: 1px solid #44475a;
-    }
-
-    /* Modern cards with glassmorphism effect */
-    .glass-card {
-        background: linear-gradient(180deg, #1e1e2e 0%, #2d2d44 100%);
-        backdrop-filter: blur(5px);
-        border-radius: 1rem;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    .glass-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-    }
-
-    /* Enhanced buttons */
-    .stButton>button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 0.75rem;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    }
-
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-    }
-
-    /* Enhanced metrics */
-    [data-testid="metric-container"] {
-        background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 0.75rem;
-        padding: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    }
-
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 4px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-    }
-
-    /* Code block styling */
-    .stCodeBlock {
-        border-radius: 0.5rem;
-        border: 1px solid #e1e5e9;
-    }
-
-    /* Tab styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 2rem;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        white-space: pre-wrap;
-        background-color: transparent;
-        border-radius: 0.5rem 0.5rem 0 0;
-        gap: 1rem;
-        padding: 0 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 def sanitize_file_path(file_path: str) -> Optional[str]:
     """
@@ -366,6 +257,9 @@ def sidebar_database_connection():
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### Database Connection")
+
+    # Place the (now hidden) theme toggle button in the sidebar
+    theme_toggle()
     
     if not st.session_state.connected:
         with st.sidebar.expander("Connect to Existing Database", expanded=False):
@@ -610,29 +504,30 @@ def generate_visualizations(df: pd.DataFrame):
     # Generate Plotly Charts
     try:
         fig = None
+        theme_template = "plotly_white" if st.session_state.get('theme', 'dark') == 'light' else "plotly_dark"
         if chart_type == "Bar Chart":
-            fig = px.bar(df, x=x_axis, y=y_axis, color=color_col, title=f"{y_axis} by {x_axis}", template="plotly_dark")
+            fig = px.bar(df, x=x_axis, y=y_axis, color=color_col, title=f"{y_axis} by {x_axis}", template=theme_template)
         
         elif chart_type == "Line Chart":
-            fig = px.line(df, x=x_axis, y=y_axis, color=color_col, markers=True, title=f"{y_axis} over {x_axis}", template="plotly_dark")
+            fig = px.line(df, x=x_axis, y=y_axis, color=color_col, markers=True, title=f"{y_axis} over {x_axis}", template=theme_template)
         
         elif chart_type == "Scatter Plot":
-            fig = px.scatter(df, x=x_axis, y=y_axis, color=color_col, title=f"{y_axis} vs {x_axis}", template="plotly_dark")
+            fig = px.scatter(df, x=x_axis, y=y_axis, color=color_col, title=f"{y_axis} vs {x_axis}", template=theme_template)
         
         elif chart_type == "Pie Chart":
-            fig = px.pie(df, names=x_axis, values=y_axis, title=f"Distribution of {y_axis} by {x_axis}", template="plotly_dark")
+            fig = px.pie(df, names=x_axis, values=y_axis, title=f"Distribution of {y_axis} by {x_axis}", template=theme_template)
             
         elif chart_type == "Area Chart":
-            fig = px.area(df, x=x_axis, y=y_axis, color=color_col, title=f"{y_axis} by {x_axis}", template="plotly_dark")
+            fig = px.area(df, x=x_axis, y=y_axis, color=color_col, title=f"{y_axis} by {x_axis}", template=theme_template)
 
         elif chart_type == "Histogram":
-            fig = px.histogram(df, x=x_axis, color=color_col, title=f"Distribution of {x_axis}", template="plotly_dark")
+            fig = px.histogram(df, x=x_axis, color=color_col, title=f"Distribution of {x_axis}", template=theme_template)
 
         if fig:
             fig.update_layout(
                 plot_bgcolor="rgba(0,0,0,0)",
                 paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="white")
+                font=dict(color="white" if theme_template == "plotly_dark" else "black")
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -1023,23 +918,52 @@ def display_query_interface():
     with col_gen1:
         generate_btn = st.button("🤖 Generate SQL", type="primary", use_container_width=True)
     
-    # Logic: Generate SQL
+        # Logic: Generate SQL — with beautiful animated "Thinking..." ✨
     if generate_btn and nl_query:
         st.session_state.last_nl_query = nl_query
-        with st.spinner("Translating to SQL..."):
-            try:
-                payload = CommandPayload(
-                    intent="select",
-                    raw_nl=nl_query,
-                    dialect=st.session_state.last_connection_type or "sqlite",
-                )
-                output = st.session_state.reasoner.generate(payload)
-                st.session_state.generated_sql = output.sql or "-- No SQL generated"
-                # Clear previous results when new SQL is generated
-                st.session_state.query_results = None 
-                st.rerun()
-            except Exception as e:
-                st.error(f"Generation failed: {e}")
+        
+        # Custom beautiful thinking animation
+        thinking_placeholder = st.empty()
+        
+        # Phase 1: "Thinking..." with dots
+        for i in range(18):  # ~5–6 seconds max
+            dots = "." * ((i % 3) + 1)
+            thinking_placeholder.markdown(
+                f"<h2 style='text-align:center; color:#a78bfa;'>🤖 Thinking{dots}</h2>",
+                unsafe_allow_html=True
+            )
+            time.sleep(0.25)
+            # Early exit if we're done (in case Gemini is fast)
+            if 'generated_sql' in st.session_state and st.session_state.generated_sql:
+                break
+        
+        # Phase 2: "Generating SQL..."
+        thinking_placeholder.markdown(
+            "<h2 style='text-align:center; color:#10b981;'>✨ Generating SQL...</h2>",
+            unsafe_allow_html=True
+        )
+        
+        try:
+            payload = CommandPayload(
+                intent="select",
+                raw_nl=nl_query,
+                dialect=st.session_state.last_connection_type or "sqlite"
+            )
+            output = st.session_state.reasoner.generate(payload)
+            
+            st.session_state.generated_sql = output.sql.strip() if output.sql else "-- No SQL generated"
+            st.session_state.query_results = None
+            
+            # Final success message
+            thinking_placeholder.success("✅ SQL Generated!")
+            time.sleep(0.8)
+            thinking_placeholder.empty()
+            
+            st.rerun()
+            
+        except Exception as e:
+            thinking_placeholder.empty()
+            st.error(f"Generation failed: {e}")
 
     # 2. SQL Editor & Refinement
     display_sql_editor_and_execution()
@@ -1281,6 +1205,7 @@ def main():
     """Enhanced main application with optional debug features"""
     try:
         initialize_session_state()
+        apply_custom_theming()
         display_enhanced_header()
         
         sidebar_database_connection()
